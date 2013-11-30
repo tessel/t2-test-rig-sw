@@ -1,0 +1,35 @@
+extends layout
+
+block content
+  .row
+    h2 #{id} | Device
+
+  table
+      thead
+        tr
+          th Time
+          th Build
+          th TI Firmware
+          th ADC test
+          th SPI test
+          th I2C test
+          th GPIOs test
+          th RAM test
+          th WiFi test
+      tbody
+        tr
+          td=device.built
+          td
+            a(href="https://github.com/technicalmachine/ScriptStick/tree/#{device.firmware}")
+              =device.firmware
+          td=device.tiFirmware
+          td=device.adc
+          td=device.spi
+          td=device.i2c
+          td=device.gpio
+          td=device.ram
+          td=device.wifi
+
+  h2 Logs
+  #{logs}
+

@@ -1,0 +1,29 @@
+extends layout
+
+block content
+  .row
+    h2 Programming benches
+
+  #benches
+    table
+      thead
+        tr
+          th Device
+          th status
+          th build
+          th Device Build
+          th ip
+          th gateway
+      tbody
+        each bench in benches
+          tr
+            td
+              a(href="/b/#{bench.name}")
+                =bench.name
+            th
+              a(href='https://github.com/technicalmachine/ScriptStick/tree/#{bench.deviceBuild}')
+                =bench.deviceBuild
+            td=bench.heartbeat
+            td=bench.build
+            td=bench.ip
+            td=bench.gateway

@@ -1,0 +1,40 @@
+extends layout
+
+block content
+  .row
+    h2 #{bench} | Programming bench
+
+  h2 Devices programmed
+  #tessels
+    table
+      thead
+        tr
+          th Time
+          th Device ID
+          th Build
+          th Device Build
+          th TI Firmware
+          th ADC test
+          th SPI test
+          th I2C test
+          th GPIOs test
+          th RAM test
+          th WiFi test
+      tbody
+        each device in devices
+          tr
+            td=device.built
+            td
+              a(href="/d/#{device.deviceId}")
+                =device.deviceId
+            td
+              a(href="https://github.com/technicalmachine/ScriptStick/tree/#{device.firmware}")
+                =device.firmware
+            td=device.tiFirmware
+            td=device.adc
+            td=device.spi
+            td=device.i2c
+            td=device.gpio
+            td=device.ram
+            td=device.wifi
+
