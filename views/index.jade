@@ -1,5 +1,28 @@
 extends layout
 
+block head
+  script
+    var socket = io.connect();
+    socket.on('bench_heartbeat', function (bench) {
+        console.log("Got some data: ", bench);
+        // find bench by id, update all the data
+        // $('#'+bench.name+'')
+        var name = bench.name;
+        Object.keys(bench).forEach(function(key){
+          // console.log("key ", key);
+          // if this is a link update the last part before the '/'
+          var obj = $('#'+name+'-'+key);
+          // console.log('looking for obj '+ '#'+name+'-'+key);
+          if (obj.is('a')){
+            var url = obj.attr('href');
+            url = url.substring(0, url.lastIndexOf('/')+1)+bench[key];
+            obj.attr('href', url);
+          }
+          // update the inner text
+          obj.text(bench[key]);
+        });
+    }); 
+
 block content
   .row
     h2 Programming benches
@@ -18,12 +41,17 @@ block content
         each bench in benches
           tr
             td
-              a(href="/b/#{bench.name}")
+              a(href="/b/#{bench.name}", id="#{bench.name}-name")
                 =bench.name
             th
-              a(href='https://github.com/technicalmachine/ScriptStick/tree/#{bench.deviceBuild}')
+              a(href='https://github.com/technicalmachine/ScriptStick/tree/#{bench.deviceBuild}', id="#{bench.name}-deviceBuild")
                 =bench.deviceBuild
-            td=bench.heartbeat
-            td=bench.build
-            td=bench.ip
-            td=bench.gateway
+            td(id="#{bench.name}-heartbeat")
+              =bench.heartbeat
+            td
+              a(href='', id="#{bench.name}-build")
+                =bench.build
+            td(id="#{bench.name}-ip")
+              =bench.ip
+            td(id="#{bench.name}-gateway")
+              =bench.gateway
