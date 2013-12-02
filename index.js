@@ -132,6 +132,7 @@ app.post('/bench', function(req, res) {
   var benchHeartbeat = req.body;
   // insert into database
   console.log("heartbeat", benchHeartbeat);
+  benchHeartbeat.heartbeat = new Date().getTime();
   Benches.save(benchHeartbeat, function(err) {
     if (err) {
       console.log("not saved", err, benchHeartbeat);
