@@ -19,7 +19,11 @@ block head
             obj.attr('href', url);
           }
           // update the inner text
-          obj.text(bench[key]);
+          if (key=='heartbeat'){
+            obj.text(new Date(bench[key]));
+          } else {
+            obj.text(bench[key]);
+          }
         });
     }); 
 
@@ -32,7 +36,7 @@ block content
       thead
         tr
           th Device
-          th status
+          th Last online
           th build
           th Device Build
           th ip
@@ -43,11 +47,11 @@ block content
             td
               a(href="/b/#{bench.name}", id="#{bench.name}-name")
                 =bench.name
+            td(id="#{bench.name}-heartbeat")
+              =bench.heartbeat
             th
               a(href='https://github.com/technicalmachine/ScriptStick/tree/#{bench.deviceBuild}', id="#{bench.name}-deviceBuild")
                 =bench.deviceBuild
-            td(id="#{bench.name}-heartbeat")
-              =bench.heartbeat
             td
               a(href='', id="#{bench.name}-build")
                 =bench.build

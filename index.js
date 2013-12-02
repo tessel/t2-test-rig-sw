@@ -173,10 +173,10 @@ app.post('/deviceLogs', function(req, res) {
   DeviceLogs.save(log, function(err) {
     if (err) {
       console.log("not saved", err, log);
-      res.send(false);
+      res.send(true);
     } else { 
       console.log('saved', device);
-      res.send(true);
+      res.send(false);
     }
   });
 });
