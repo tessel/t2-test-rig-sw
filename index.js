@@ -38,6 +38,8 @@ app.get('/', function(req, res) {
   //   deviceBuild: 'abc123',
   //   ip: '0.0.0.0',
   //   gateway: '0.0.0.0',
+  //   ssh: '0.0.0.0',
+  //   port: '2222'
   // }, {
   //   name: 'Waffles',
   //   heartbeat: new Date().getTime(),
@@ -45,6 +47,8 @@ app.get('/', function(req, res) {
   //   deviceBuild: 'abc123',
   //   ip: '0.0.0.0',
   //   gateway: '0.0.0.0',
+  //   ssh: '0.0.0.0',
+  //   port: '2222'
   // }];
   var benches = [];
   Benches.distinct('name', function (err, names){
@@ -56,10 +60,30 @@ app.get('/', function(req, res) {
         .sort({'heartbeat': -1}, function (err, record){
           benches.push(record[0]);
           // console.log("record ", record[0]);
-          if (benches.length == names.length){
+          // if (benches.length == names.length){
             console.log("benches ", benches);
-            res.render('index', {title: 'Testalator | Technical Machine', benches: benches});
-          }
+            res.render('index', {title: 'Testalator | Technical Machine', benches: benches, formatDate: function formatDate(time) {
+              var date = new Date(time);
+              //zero-pad a single zero if needed
+              var zp = function (val){
+                  return (val <= 9 ? '0' + val : '' + val);
+              }
+              //zero-pad up to two zeroes if needed
+              var zp2 = function(val){
+                  return val <= 99? (val <=9? '00' + val : '0' + val) : ('' + val ) ;
+              }
+              var d = date.getDate();
+              var m = date.getMonth() + 1;
+              var y = date.getYear() - 100;
+              var h = date.getHours();
+              var min = date.getMinutes();
+              var s = date.getSeconds();
+              var ms = date.getMilliseconds();
+              return '' + m+ '/' + d + '/' + y + ' ' + zp(h) + ':' + zp(min) + ':' + zp(s) + '.' + zp2(ms);
+            }, formatBuild: function (build){
+              if (build) return build.substring(0, 10);
+            }});
+          // }
         });
     })
   });
@@ -68,23 +92,23 @@ app.get('/', function(req, res) {
 
 app.get('/d/:device', function(req, res){
   var device = req.params.device;
-  // var deviceInfo = {
-  //   built: new Date().getTime(),
-  //   deviceId: 'abc123',
-  //   tiFirmware: 'v1.2',
-  //   firmware: 'abc213',
-  //   adc: 'pass',
-  //   spi: 'pass',
-  //   i2c: 'pass',
-  //   gpio: 'fail',
-  //   ram: 'fail',
-  //   wifi: 'fail',
-  //   codeUpload: 'fail',
-  // };
 
-  Devices.findOne({'id': device}, function (err, doc){
-      res.render('device', {title: device+' | Testalator', id: device, device: doc, logs: ""});
-    });
+  Devices.findOne({'id': device}, function (err, deviceInfo){
+    // var deviceInfo = {
+    //   built: new Date().getTime(),
+    //   deviceId: 'abc123',
+    //   tiFirmware: 'v1.2',
+    //   firmware: 'abc213',
+    //   adc: 'pass',
+    //   spi: 'pass',
+    //   i2c: 'pass',
+    //   gpio: 'fail',
+    //   otp: 'fail',
+    //   wifi: 'fail',
+    //   codeUpload: 'fail',
+    // };
+    res.render('device', {title: device+' | Testalator', id: device, device: deviceInfo, logs: ""});
+  });
 
   
 });
@@ -94,36 +118,36 @@ app.get('/d/:device', function(req, res){
 app.get('/b/:bench', function(req, res){
   var bench = req.params.bench;
   console.log("got ", bench);
-  // var devices = [{
-  //   built: new Date().getTime(),
-  //   deviceId: 'abc123',
-  //   tiFirmware: 'v1.2',
-  //   firmware: 'abc213',
-  //   adc: 'pass',
-  //   spi: 'pass',
-  //   i2c: 'pass',
-  //   gpio: 'fail',
-  //   ram: 'fail',
-  //   wifi: 'fail',
-  //   codeUpload: 'fail',
-  // }, {
-  //   built: new Date().getTime(),
-  //   deviceId: 'abc123',
-  //   tiFirmware: 'v1.2',
-  //   firmware: 'abc213',
-  //   adc: 'pass',
-  //   spi: 'pass',
-  //   i2c: 'pass',
-  //   gpio: 'fail',
-  //   ram: 'fail',
-  //   wifi: 'fail',
-  //   codeUpload: 'fail',
-  // }];
+  var devices = [{
+    built: new Date().getTime(),
+    id: 'abc123',
+    tiFirmware: 'v1.2',
+    firmware: 'abc213',
+    adc: 'pass',
+    spi: 'pass',
+    i2c: 'pass',
+    gpio: 'fail',
+    otp: 'fail',
+    wifi: 'fail',
+    codeUpload: 'fail',
+  }, {
+    built: new Date().getTime(),
+    id: 'abc123',
+    tiFirmware: 'v1.2',
+    firmware: 'abc213',
+    adc: 'pass',
+    spi: 'pass',
+    i2c: 'pass',
+    gpio: 'fail',
+    otp: 'fail',
+    wifi: 'fail',
+    codeUpload: 'fail',
+  }];
 
   // find all devices by test bench and sort by date
   Devices.find({'bench': bench})
     .sort({'built': -1}, function (err, docs){
-      res.render('bench', {title: bench+' | Testalator', bench: bench, devices: docs})
+      res.render('bench', {title: bench+' | Testalator', bench: bench, devices: devices})
     });
 });
 

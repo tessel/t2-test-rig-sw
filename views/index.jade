@@ -3,25 +3,6 @@ extends layout
 block head
   script
     var socket = io.connect();
-    function formatDate(time) {
-      var date = new Date(time);
-      //zero-pad a single zero if needed
-      var zp = function (val){
-          return (val <= 9 ? '0' + val : '' + val);
-      }
-      //zero-pad up to two zeroes if needed
-      var zp2 = function(val){
-          return val <= 99? (val <=9? '00' + val : '0' + val) : ('' + val ) ;
-      }
-      var d = date.getDate();
-      var m = date.getMonth() + 1;
-      var y = date.getFullYear();
-      var h = date.getHours();
-      var min = date.getMinutes();
-      var s = date.getSeconds();
-      var ms = date.getMilliseconds();
-      return '' + y + '-' + zp(m) + '-' + zp(d) + ' ' + zp(h) + ':' + zp(min) + ':' + zp(s) + '.' + zp2(ms);
-    }
     socket.on('bench_heartbeat', function (bench) {
         console.log("Got some data: ", bench);
         // find bench by id, update all the data
@@ -61,6 +42,8 @@ block content
           th Device Build
           th ip
           th gateway
+          th ssh
+          th port
       tbody
         each bench in benches
           tr
@@ -68,14 +51,18 @@ block content
               a(href="/b/#{bench.name}", id="#{bench.name}-name")
                 =bench.name
             td(id="#{bench.name}-heartbeat")
-              =bench.heartbeat
+              =formatDate(bench.heartbeat)
             th
               a(href='https://github.com/technicalmachine/ScriptStick/tree/#{bench.deviceBuild}', id="#{bench.name}-deviceBuild")
-                =bench.deviceBuild
+                =formatBuild(bench.deviceBuild)
             td
-              a(href='', id="#{bench.name}-build")
-                =bench.build
+              a(href='https://github.com/technicalmachine/testalator-device/commit/#{bench.build}', id="#{bench.name}-build")
+                =formatBuild(bench.build)
             td(id="#{bench.name}-ip")
               =bench.ip
             td(id="#{bench.name}-gateway")
               =bench.gateway
+            td
+              =bench.ssh
+            td
+              =bench.port
