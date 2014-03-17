@@ -6,6 +6,8 @@ var http = require('http');
 var server = http.createServer(app);
 
 var io = require('socket.io').listen(server);
+io.set('transports', ['xhr-polling']);
+io.set('polling duration', 10);
 
 app.use(express.logger());
 
@@ -118,31 +120,31 @@ app.get('/d/:device', function(req, res){
 app.get('/b/:bench', function(req, res){
   var bench = req.params.bench;
   console.log("got ", bench);
-  var devices = [{
-    built: new Date().getTime(),
-    id: 'abc123',
-    tiFirmware: 'v1.2',
-    firmware: 'abc213',
-    adc: 'pass',
-    spi: 'pass',
-    i2c: 'pass',
-    gpio: 'fail',
-    otp: 'fail',
-    wifi: 'fail',
-    codeUpload: 'fail',
-  }, {
-    built: new Date().getTime(),
-    id: 'abc123',
-    tiFirmware: 'v1.2',
-    firmware: 'abc213',
-    adc: 'pass',
-    spi: 'pass',
-    i2c: 'pass',
-    gpio: 'fail',
-    otp: 'fail',
-    wifi: 'fail',
-    codeUpload: 'fail',
-  }];
+  // var devices = [{
+  //   built: new Date().getTime(),
+  //   id: 'abc123',
+  //   tiFirmware: 'v1.2',
+  //   firmware: 'abc213',
+  //   adc: 'pass',
+  //   spi: 'pass',
+  //   i2c: 'pass',
+  //   gpio: 'fail',
+  //   otp: 'fail',
+  //   wifi: 'fail',
+  //   codeUpload: 'fail',
+  // }, {
+  //   built: new Date().getTime(),
+  //   id: 'abc123',
+  //   tiFirmware: 'v1.2',
+  //   firmware: 'abc213',
+  //   adc: 'pass',
+  //   spi: 'pass',
+  //   i2c: 'pass',
+  //   gpio: 'fail',
+  //   otp: 'fail',
+  //   wifi: 'fail',
+  //   codeUpload: 'fail',
+  // }];
 
   // find all devices by test bench and sort by date
   Devices.find({'bench': bench})

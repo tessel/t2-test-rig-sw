@@ -22,8 +22,10 @@ block head
           if (key=='heartbeat'){
             obj.text(formatDate(bench[key]));
           } else {
-            obj.text(formatDate(bench[key]));
+            obj.text(bench[key]);
           }
+
+          // flash the change
         });
     }); 
     
