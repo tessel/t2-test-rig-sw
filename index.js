@@ -160,13 +160,13 @@ app.post('/bench', function(req, res) {
   console.log("heartbeat", benchHeartbeat);
   benchHeartbeat.heartbeat = new Date().getTime();
   Benches.save(benchHeartbeat, function(err) {
-    if (err) {
-      console.log("not saved", err, benchHeartbeat);
+    if (!err) {
+      console.log('saved', benchHeartbeat);      
       // emit heartbeat
       io.sockets.emit('bench_heartbeat', benchHeartbeat);
       res.send(true);
     } else { 
-      console.log('saved', benchHeartbeat);
+      console.log("not saved", err, benchHeartbeat);
       res.send(false);
     }
   });
@@ -181,13 +181,13 @@ app.post('/device', function(req, res) {
   // insert into database
   console.log("device", device);
   Devices.save(device, function(err) {
-    if (err) {
-      console.log("not saved", err, device);
+    if (!err) {
+      console.log('saved', device);      
       // emit heartbeat
       io.sockets.emit('device_update', device);
       res.send(true);
     } else { 
-      console.log('saved', device);
+      console.log("not saved", err, device);
       res.send(false);
     }
   });
@@ -197,11 +197,11 @@ app.post('/device', function(req, res) {
 app.post('/deviceLogs', function(req, res) {
   var log = req.body;
   DeviceLogs.save(log, function(err) {
-    if (err) {
-      console.log("not saved", err, log);
+    if (!err) {
+      console.log('saved', device);
       res.send(true);
     } else { 
-      console.log('saved', device);
+      console.log("not saved", err, log);      
       res.send(false);
     }
   });
