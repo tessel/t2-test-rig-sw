@@ -3,32 +3,53 @@ extends layout
 block head
   script
     var socket = io.connect();
-    socket.on('bench_heartbeat', function (bench) {
-        console.log("Got some data: ", bench);
-        // find bench by id, update all the data
-        // $('#'+bench.name+'')
-        var name = bench.name;
-        Object.keys(bench).forEach(function(key){
-          // console.log("key ", key);
-          // if this is a link update the last part before the '/'
-          var obj = $('#'+name+'-'+key);
-          // console.log('looking for obj '+ '#'+name+'-'+key);
-          if (obj.is('a')){
-            var url = obj.attr('href');
-            url = url.substring(0, url.lastIndexOf('/')+1)+bench[key];
-            obj.attr('href', url);
+    $(function() {
+      // format dates and times
+      $(".heartbeat").each(function(item){
+        var formatted = formatDate(Number($(this).html()));
+        $(this).html(formatted);
+      });
+      $(".build").each(function(item){
+        var formatted = formatBuild($(this).html());
+        $(this).html(formatted);
+      });
+      setInterval(function() {
+        // go through all the ping times, if it hasn't pinged in 5 min, highlight it
+        $(".heartbeat").each(function(item){
+          if ( (new Date() - new Date($(this).html())) > (5 * 60 * 1000)){
+            $(this).closest('tr').css('background-color', "red");
           }
-          // update the inner text
-          if (key=='heartbeat'){
-            obj.text(formatDate(bench[key]));
-          } else {
-            obj.text(bench[key]);
-          }
-
-          // flash the change
         });
-    }); 
-    
+      }, 60000);
+    });
+    // on startup format dates
+    socket.on('bench_heartbeat', function (bench) {
+      console.log("Got some data: ", bench);
+      // find bench by id, update all the data
+      // $('#'+bench.name+'')
+      var name = bench.name;
+      Object.keys(bench).forEach(function(key){
+        // console.log("key ", key);
+        // if this is a link update the last part before the '/'
+        var obj = $('#'+name+'-'+key);
+        // console.log('looking for obj '+ '#'+name+'-'+key);
+        if (obj.is('a')){
+          var url = obj.attr('href');
+          url = url.substring(0, url.lastIndexOf('/')+1)+bench[key];
+          obj.attr('href', url);
+        }
+        // update the inner text
+        if (key=='heartbeat'){
+          obj.text(formatDate(bench[key]));
+        } else if (key =='build'){
+          obj.text(formatBuild(bench[key]));
+        }
+      });
+      // flash the change
+      highlightYellow($("#"+name+"-name").closest('tr'));
+    });
+      
+
 
 block content
   .row
@@ -52,14 +73,16 @@ block content
             td
               a(href="/b/#{bench.name}", id="#{bench.name}-name")
                 =bench.name
-            td(id="#{bench.name}-heartbeat")
-              =formatDate(bench.heartbeat)
+            td(id="#{bench.name}-heartbeat", class="heartbeat")
+              =bench.heartbeat
             th
-              a(href='https://github.com/technicalmachine/ScriptStick/tree/#{bench.deviceBuild}', id="#{bench.name}-deviceBuild")
-                =formatBuild(bench.deviceBuild)
+              a(href='https://github.com/technicalmachine/ScriptStick/tree/#{bench.deviceBuild}', 
+                id="#{bench.name}-deviceBuild", class="build")
+                =bench.deviceBuild
             td
-              a(href='https://github.com/technicalmachine/testalator-device/commit/#{bench.build}', id="#{bench.name}-build")
-                =formatBuild(bench.build)
+              a(href='https://github.com/technicalmachine/testalator-device/commit/#{bench.build}', 
+                id="#{bench.name}-build", class="build")
+                =bench.build
             td(id="#{bench.name}-ip")
               =bench.ip
             td(id="#{bench.name}-gateway")

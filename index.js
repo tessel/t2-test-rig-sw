@@ -28,10 +28,6 @@ var Benches = db.collection('benches');
 var Devices = db.collection('devices');
 var DeviceLogs = db.collection('deviceLogs');
 
-
-// var mongojs = require('mongojs');
-// var db = mongojs(process.env.NODE_ENV == 'production' ? process.env.MONGOLAB_URI : 'localhost');
-
 app.get('/', function(req, res) {
   // var benches = [{
   //   name: 'Pancakes',
@@ -64,27 +60,8 @@ app.get('/', function(req, res) {
           // console.log("record ", record[0]);
           // if (benches.length == names.length){
             console.log("benches ", benches);
-            res.render('index', {title: 'Testalator | Technical Machine', benches: benches, formatDate: function formatDate(time) {
-              var date = new Date(time);
-              //zero-pad a single zero if needed
-              var zp = function (val){
-                  return (val <= 9 ? '0' + val : '' + val);
-              }
-              //zero-pad up to two zeroes if needed
-              var zp2 = function(val){
-                  return val <= 99? (val <=9? '00' + val : '0' + val) : ('' + val ) ;
-              }
-              var d = date.getDate();
-              var m = date.getMonth() + 1;
-              var y = date.getYear() - 100;
-              var h = date.getHours();
-              var min = date.getMinutes();
-              var s = date.getSeconds();
-              var ms = date.getMilliseconds();
-              return '' + m+ '/' + d + '/' + y + ' ' + zp(h) + ':' + zp(min) + ':' + zp(s) + '.' + zp2(ms);
-            }, formatBuild: function (build){
-              if (build) return build.substring(0, 10);
-            }});
+            res.render('index', {title: 'Testalator | Technical Machine', 
+              benches: benches});
           // }
         });
     })
@@ -151,6 +128,21 @@ app.get('/b/:bench', function(req, res){
     .sort({'built': -1}, function (err, docs){
       res.render('bench', {title: bench+' | Testalator', bench: bench, devices: devices})
     });
+});
+
+
+app.get('/test_bench', function(req, res) {
+  io.sockets.emit('bench_heartbeat', {
+    name: 'fried_eggs',
+    heartbeat: new Date().getTime(),
+    build: 'abc123',
+    deviceBuild: 'abc123',
+    ip: '0.0.0.0',
+    gateway: '0.0.0.0',
+    ssh: '0.0.0.0',
+    port: '2222'
+  });
+  res.send(true);
 });
 
 app.post('/bench', function(req, res) {
