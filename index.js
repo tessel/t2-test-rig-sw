@@ -208,15 +208,15 @@ app.get('/b/:bench/logs', function (req, res){
 
 app.post('/b/:bench/logs', function(req, res) {
   var log = req.body;
-  var bench = req.params.bench;
+  var bench = req.params.device;
   // console.log("body", req.body);
-  if (bench != req.body.bench.toLowerCase()){
-    console.error("params does not match request", bench, req.body.bench);
+  if (bench != req.body.device.toLowerCase()){
+    console.error("params does not match request", bench, req.body.device);
     res.send(false);
   }
   // look for a log by this device id
   BenchLogs.findAndModify({
-    query: {device: req.body.bench},
+    query: {device: req.body.device},
     update: {
       $push: {log: req.body.data}
     },
