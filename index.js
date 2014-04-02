@@ -25,6 +25,7 @@ var mongojs = require('mongojs');
 console.log("environment", process.env.NODE_ENV);
 var db = mongojs(process.env.NODE_ENV == 'production' ? process.env.MONGOLAB_URI : 'localhost');
 var Benches = db.collection('benches');
+var BenchLogs = db.collection('benchLogs');
 var Devices = db.collection('devices');
 var DeviceLogs = db.collection('deviceLogs');
 
@@ -97,31 +98,31 @@ app.get('/d/:device', function(req, res){
 app.get('/b/:bench', function(req, res){
   var bench = req.params.bench;
   console.log("got ", bench);
-  // var devices = [{
-  //   built: new Date().getTime(),
-  //   id: 'abc123',
-  //   tiFirmware: 'v1.2',
-  //   firmware: 'abc213',
-  //   adc: 'pass',
-  //   spi: 'pass',
-  //   i2c: 'pass',
-  //   gpio: 'fail',
-  //   otp: 'fail',
-  //   wifi: 'fail',
-  //   codeUpload: 'fail',
-  // }, {
-  //   built: new Date().getTime(),
-  //   id: 'abc123',
-  //   tiFirmware: 'v1.2',
-  //   firmware: 'abc213',
-  //   adc: 'pass',
-  //   spi: 'pass',
-  //   i2c: 'pass',
-  //   gpio: 'fail',
-  //   otp: 'fail',
-  //   wifi: 'fail',
-  //   codeUpload: 'fail',
-  // }];
+  var devices = [{
+    built: new Date().getTime(),
+    id: 'abc123',
+    tiFirmware: 'v1.2',
+    firmware: 'abc213',
+    adc: 'pass',
+    spi: 'pass',
+    i2c: 'pass',
+    gpio: 'fail',
+    otp: 'fail',
+    wifi: 'fail',
+    codeUpload: 'fail',
+  }, {
+    built: new Date().getTime(),
+    id: 'abc123',
+    tiFirmware: 'v1.2',
+    firmware: 'abc213',
+    adc: 'pass',
+    spi: 'pass',
+    i2c: 'pass',
+    gpio: 'fail',
+    otp: 'fail',
+    wifi: 'fail',
+    codeUpload: 'fail',
+  }];
 
   // find all devices by test bench and sort by date
   Devices.find({'bench': bench})
@@ -167,33 +168,91 @@ app.post('/bench', function(req, res) {
 
 // curl -H 'Content-Type: application/json' -d '{"built":"1234", "id":"abc123", "tiFirmware": "v1.2", "firmware": "df93wd", "adc": "pass", "spi": "pass", "i2c": "pass", "gpio": "fail", "ram": "fail", "wifi": "pass", "codeUpload": "pass", "bench": "Pancakes"}' localhost:5000/device
 
-app.post('/device', function(req, res) {
+app.post('/d/:device/test', function(req, res) {
   console.log("request header", req.headers);
   var device = req.body;
+  var updateTest = {};
+  updateTest[req.body.test] = req.body.status;
   // insert into database
-  console.log("device", device);
-  Devices.save(device, function(err) {
+  console.log("device", req.body.device);
+  Devices.findAndModify({
+    query: {id: req.body.device, firmware: req.body.firmware, runtime: req.body.runtime, otp:req.body.otp},
+    update: {
+      $set: updateTest
+    },
+    upsert:true
+  }, function(err, doc) {
     if (!err) {
-      console.log('saved', device);      
+      console.log('saved', doc);      
       // emit heartbeat
-      io.sockets.emit('device_update', device);
+      io.sockets.emit('device_update', doc);
       res.send(true);
     } else { 
-      console.log("not saved", err, device);
+      console.log("not saved", err, doc);
       res.send(false);
     }
   });
   
 });
 
-app.post('/deviceLogs', function(req, res) {
+app.get('/b/:bench/logs', function (req, res){
+  // find the logs for this bench
+  var bench = req.params.bench;
+  BenchLogs.findOne({'device': bench}, function (err, logs) {
+    console.log("logs", err, logs);
+    res.render('logs', {title: bench+' | logs', logs: logs, id: bench, type:"Bench"});
+  });
+});
+
+// curl -X POST -H "Content-Type: application/json" -d '{"bench":"fried_eggs","data":"herp derp some data"}' http://localhost:5000/b/fried_eggs/logs
+
+app.post('/b/:bench/logs', function(req, res) {
   var log = req.body;
-  DeviceLogs.save(log, function(err) {
+  var bench = req.params.bench;
+  // console.log("body", req.body);
+  if (bench != req.body.bench.toLowerCase()){
+    console.error("params does not match request", bench, req.body.bench);
+    res.send(false);
+  }
+  // look for a log by this device id
+  BenchLogs.findAndModify({
+    query: {device: req.body.bench},
+    update: {
+      $push: {log: req.body.data}
+    },
+    upsert:true
+  }, function(err, doc, lastErrorObject) {
+    // emit an event about this log update
+
     if (!err) {
-      console.log('saved', device);
+      console.log('saved', doc, lastErrorObject);
       res.send(true);
     } else { 
-      console.log("not saved", err, log);      
+      console.log("not saved", err, doc);      
+      res.send(false);
+    }
+  });
+});
+
+app.get('/d/:device/logs', function (req, res){
+  res.send()
+});
+
+app.post('/d/:device/logs', function(req, res) {
+  var log = req.body;
+  // look for a log by this device id
+  DeviceLogs.findAndModify({
+    query: {device: req.body.device},
+    update: {
+      $push: {log: req.body.data}
+    },
+    upsert:true
+  }, function(err, doc) {
+    if (!err) {
+      console.log('saved', doc);
+      res.send(true);
+    } else { 
+      console.log("not saved", err, doc);      
       res.send(false);
     }
   });

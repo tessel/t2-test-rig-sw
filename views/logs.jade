@@ -1,0 +1,9 @@
+extends layout
+
+block content
+  .row
+    h2 #{id} | #{type}
+
+  each log in logs.log
+    p
+      =log
