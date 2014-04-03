@@ -1,9 +1,24 @@
 extends layout
 
+block head
+  script
+    $(function() {
+      var logs = $("#logs");
+      logs.scrollTop(logs[0].scrollHeight);
+      socket.on('log_update_#{id}', function (data) {
+        console.log("got data", data);
+        var newDiv = $("<div>").html(data);
+        logs.append(newDiv);
+        logs.scrollTop(logs[0].scrollHeight);
+        // highlightYellow(newDiv);
+      });
+    });
+
 block content
   .row
     h2 #{id} | #{type}
 
-  each log in logs.log
-    p
-      =log
+  div(id="logs", style="height:500px; overflow-y:scroll; padding: 10px; background-color: rgb(54, 54, 54); color: whitesmoke;")
+    each log in logs.log
+      div
+        =log

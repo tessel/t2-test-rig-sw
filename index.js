@@ -208,11 +208,12 @@ app.get('/b/:bench/logs', function (req, res){
 
 app.post('/b/:bench/logs', function(req, res) {
   var log = req.body;
-  var bench = req.params.device;
-  // console.log("body", req.body);
+  var bench = req.params.bench;
+  // console.log("req.body", req.body.device);
+  // console.log("bench", bench, req.body.device.toLowerCase());
   if (bench != req.body.device.toLowerCase()){
     console.error("params does not match request", bench, req.body.device);
-    res.send(false);
+    return res.send(false);
   }
   // look for a log by this device id
   BenchLogs.findAndModify({
@@ -226,6 +227,7 @@ app.post('/b/:bench/logs', function(req, res) {
 
     if (!err) {
       console.log('saved', doc, lastErrorObject);
+      io.sockets.emit('log_update_'+bench, req.body.data);
       res.send(true);
     } else { 
       console.log("not saved", err, doc);      
@@ -235,11 +237,22 @@ app.post('/b/:bench/logs', function(req, res) {
 });
 
 app.get('/d/:device/logs', function (req, res){
-  res.send()
+  var device = req.params.device;
+  DeviceLogs.findOne({'device': device}, function (err, logs) {
+    console.log("logs", err, logs);
+    res.render('logs', {title: device+' | logs', logs: logs, id: device, type:"Device"});
+  });
 });
 
 app.post('/d/:device/logs', function(req, res) {
   var log = req.body;
+  var device = req.params.device;
+  // console.log("req.body", req.body.device);
+  // console.log("bench", bench, req.body.device.toLowerCase());
+  if (device != req.body.device.toLowerCase()){
+    console.error("params does not match request", device, req.body.device);
+    return res.send(false);
+  }
   // look for a log by this device id
   DeviceLogs.findAndModify({
     query: {device: req.body.device},
@@ -247,9 +260,12 @@ app.post('/d/:device/logs', function(req, res) {
       $push: {log: req.body.data}
     },
     upsert:true
-  }, function(err, doc) {
+  }, function(err, doc, lastErrorObject) {
+    // emit an event about this log update
+
     if (!err) {
-      console.log('saved', doc);
+      console.log('saved', doc, lastErrorObject);
+      io.sockets.emit('log_update_'+device, req.body.data);
       res.send(true);
     } else { 
       console.log("not saved", err, doc);      
