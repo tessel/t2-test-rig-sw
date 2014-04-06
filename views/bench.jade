@@ -5,33 +5,47 @@ block head
     var socket = io.connect();
     var bench = "#{bench}";
     var gitLink = "https://github.com/technicalmachine/ScriptStick/tree/";
-    socket.on('device_update', function (device) {
+    socket.on('new_device', function (device) {
       // check if this is the right bench
       console.log("Got some data: ", device);
       if (device.bench != bench) return;
       // otherwise insert a new row
-      var tbl = $("#device_table");
+      var tbl = $("#device_table");      
       tbl.prepend($('<tr>')
         .append($('<td>').text(device.built))
-        .append($('<td>').text(device.id))
+        .append($('<td>')
+          .append($('<a>').attr('href', "/d/"+device.id+"/logs").text(device.id)
+          ))
         .append($('<td>')
           .append($('<a>').attr('href', gitLink+device.firmware).text(device.firmware)
           ))
-        .append($('<td>').text(device.tiFirmware))
-        .append($('<td>').text(device.adc))
-        .append($('<td>').text(device.spi))
-        .append($('<td>').text(device.i2c))
-        .append($('<td>').text(device.gpio))
-        .append($('<td>').text(device.ram))
-        .append($('<td>').text(device.wifi))
+        .append($('<td>').addClass("test").text(device.tiFirmware))
+        .append($('<td>').addClass("test").text(device.adc))
+        .append($('<td>').addClass("test").text(device.spi))
+        .append($('<td>').addClass("test").text(device.i2c))
+        .append($('<td>').addClass("test").text(device.gpio))
+        .append($('<td>').addClass("test").text(device.ram))
+        .append($('<td>').addClass("test").text(device.wifi))
       );
     }); 
+    socket.on('device_update', function (data) {
+      console.log("got device update", data);
+      var test = $("#{id}-"+data.test);
+      test.html(data.status);
+      // change the status
+      passFail(test);
+    });
+    $(function(){
+      $(".test").each(function(e){
+        passFail($(this));
+      });
+    });
 
 block content
   .row
     h2 #{bench} | Programming bench
-
-  h2 Devices programmed
+  a(href="/b/#{bench}/logs") Logs
+  h3 Devices programmed
   #tessels
     table
       thead
@@ -41,6 +55,7 @@ block content
           th Build
           th TI Firmware
           th ADC test
+          th DAC test
           th SPI test
           th I2C test
           th GPIOs test
@@ -51,16 +66,17 @@ block content
           tr
             td=device.built
             td
-              a(href="/d/#{device.id}")
+              a(href="/d/#{device.id}/logs")
                 =device.id
             td
               a(href="https://github.com/technicalmachine/ScriptStick/tree/#{device.firmware}")
                 =device.firmware
-            td=device.tiFirmware
-            td=device.adc
-            td=device.spi
-            td=device.i2c
-            td=device.gpio
-            td=device.ram
-            td=device.wifi
+            td.test(id="")=device.tiFirmware
+            td.test=device.adc
+            td.test=device.dac
+            td.test=device.spi
+            td.test=device.i2c
+            td.test=device.gpio
+            td.test=device.ram
+            td.test=device.wifi
 

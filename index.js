@@ -98,39 +98,55 @@ app.get('/d/:device', function(req, res){
 app.get('/b/:bench', function(req, res){
   var bench = req.params.bench;
   console.log("got ", bench);
-  var devices = [{
-    built: new Date().getTime(),
-    id: 'abc123',
-    tiFirmware: 'v1.2',
-    firmware: 'abc213',
-    adc: 'pass',
-    spi: 'pass',
-    i2c: 'pass',
-    gpio: 'fail',
-    otp: 'fail',
-    wifi: 'fail',
-    codeUpload: 'fail',
-  }, {
-    built: new Date().getTime(),
-    id: 'abc123',
-    tiFirmware: 'v1.2',
-    firmware: 'abc213',
-    adc: 'pass',
-    spi: 'pass',
-    i2c: 'pass',
-    gpio: 'fail',
-    otp: 'fail',
-    wifi: 'fail',
-    codeUpload: 'fail',
-  }];
+  // var devices = [{
+  //   built: new Date().getTime(),
+  //   id: 'abc123',
+  //   tiFirmware: 'v1.2',
+  //   firmware: 'abc213',
+  //   adc: 'pass',
+  //   spi: 'pass',
+  //   i2c: 'pass',
+  //   gpio: 'fail',
+  //   otp: 'fail',
+  //   wifi: 'fail',
+  //   codeUpload: 'fail',
+  // }, {
+  //   built: new Date().getTime(),
+  //   id: 'abc123',
+  //   tiFirmware: 'v1.2',
+  //   firmware: 'abc213',
+  //   adc: 'pass',
+  //   spi: 'pass',
+  //   i2c: 'pass',
+  //   gpio: 'fail',
+  //   otp: 'fail',
+  //   wifi: 'fail',
+  //   codeUpload: 'fail',
+  // }];
 
   // find all devices by test bench and sort by date
   Devices.find({'bench': bench})
     .sort({'built': -1}, function (err, docs){
-      res.render('bench', {title: bench+' | Testalator', bench: bench, devices: devices})
+      res.render('bench', {title: bench+' | Testalator', bench: bench, devices: docs})
     });
 });
 
+// curl -H 'Content-Type: application/json' -d '{"built":"1234", "id":"testest", "tiFirmware": "v1.2", "firmware": "df93wd", "adc": "pass", "spi": "pass", "i2c": "pass", "gpio": "fail", "ram": "fail", "wifi": "pass", "codeUpload": "pass", "bench": "Pancakes"}' localhost:5000/device
+
+app.post('/device', function(req, res){
+  var device = req.body;
+  console.log("adding new device", device);
+  device.logs = [];
+  Devices.save(device, function(err){
+    if (err){
+      console.log("could not save new device", err);
+      return res.send(false);
+    }
+    io.sockets.emit('new_device', device);
+    console.log('new device added');
+    res.send(true);
+  });
+});
 
 app.get('/test_bench', function(req, res) {
   io.sockets.emit('bench_heartbeat', {
@@ -147,7 +163,7 @@ app.get('/test_bench', function(req, res) {
 });
 
 app.post('/bench', function(req, res) {
-  console.log("request header", req.headers);
+  // console.log("request header", req.headers);
   var benchHeartbeat = req.body;
   // insert into database
   console.log("heartbeat", benchHeartbeat);
@@ -176,7 +192,7 @@ app.post('/d/:device/test', function(req, res) {
   // insert into database
   console.log("device", req.body.device);
   Devices.findAndModify({
-    query: {id: req.body.device, firmware: req.body.firmware, runtime: req.body.runtime, otp:req.body.otp},
+    query: {id: req.body.device, firmware: req.body.firmware, otp:req.body.otp, bench:req.body.bench},
     update: {
       $set: updateTest
     },
@@ -185,7 +201,8 @@ app.post('/d/:device/test', function(req, res) {
     if (!err) {
       console.log('saved', doc);      
       // emit heartbeat
-      io.sockets.emit('device_update', doc);
+      io.sockets.emit('device_update_'+req.body.device, {"test": req.body.test, "status": req.body.status});
+      io.sockets.emit('device_update', {"device":req.body.device, "test": req.body.test, "status": req.body.status});
       res.send(true);
     } else { 
       console.log("not saved", err, doc);
@@ -208,7 +225,7 @@ app.get('/b/:bench/logs', function (req, res){
 
 app.post('/b/:bench/logs', function(req, res) {
   var log = req.body;
-  var bench = req.params.bench;
+  var bench = req.params.bench.toLowerCase();
   // console.log("req.body", req.body.device);
   // console.log("bench", bench, req.body.device.toLowerCase());
   if (bench != req.body.device.toLowerCase()){
@@ -238,15 +255,20 @@ app.post('/b/:bench/logs', function(req, res) {
 
 app.get('/d/:device/logs', function (req, res){
   var device = req.params.device;
-  DeviceLogs.findOne({'device': device}, function (err, logs) {
-    console.log("logs", err, logs);
-    res.render('logs', {title: device+' | logs', logs: logs, id: device, type:"Device"});
+  // find that device as well
+  Devices.find({"id": device}, function(err, docs){
+    DeviceLogs.findOne({'device': device}, function (err, logs) {
+      console.log("logs", err, logs);
+      res.render('logs', {title: device+' | logs', logs: logs, id: device, type:"Device", devices: docs});
+    });
   });
 });
 
+// curl -X POST -H "Content-Type: application/json" -d '{"device":"device1","data":"herp derp some data"}' http://localhost:5000/d/device1/logs
+
 app.post('/d/:device/logs', function(req, res) {
   var log = req.body;
-  var device = req.params.device;
+  var device = req.params.device.toLowerCase();
   // console.log("req.body", req.body.device);
   // console.log("bench", bench, req.body.device.toLowerCase());
   if (device != req.body.device.toLowerCase()){
