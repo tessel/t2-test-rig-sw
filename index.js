@@ -52,6 +52,7 @@ app.get('/', function(req, res) {
   var benches = [];
   Benches.distinct('name', function (err, names){
     console.log('names', names);
+
     names.forEach(function (name){
       console.log('name ', name);
       Benches.find({'name': name})
@@ -59,11 +60,11 @@ app.get('/', function(req, res) {
         .sort({'heartbeat': -1}, function (err, record){
           benches.push(record[0]);
           // console.log("record ", record[0]);
-          // if (benches.length == names.length){
-            console.log("benches ", benches);
+          if (benches.length == names.length){
+            console.log("benches ", record);
             res.render('index', {title: 'Testalator | Technical Machine', 
               benches: benches});
-          // }
+          }
         });
     })
   });
