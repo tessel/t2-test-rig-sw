@@ -185,7 +185,7 @@ app.post('/bench', function(req, res) {
 // curl -H 'Content-Type: application/json' -d '{"built":"1234", "id":"abc123", "tiFirmware": "v1.2", "firmware": "df93wd", "adc": "pass", "spi": "pass", "i2c": "pass", "gpio": "fail", "ram": "fail", "wifi": "pass", "codeUpload": "pass", "bench": "Pancakes"}' localhost:5000/device
 
 app.post('/d/:device/test', function(req, res) {
-  console.log("request header", req.headers);
+  // console.log("request header", req.headers);
   var device = req.body;
   var updateTest = {};
   updateTest[req.body.test] = req.body.status;
