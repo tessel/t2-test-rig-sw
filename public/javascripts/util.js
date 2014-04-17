@@ -56,7 +56,7 @@ function highlight(e, pos){
 
 function passFail(e){
   var status = e.html().toLowerCase();
-  if (status == "pass") {
+  if (["pass", "true", "passed", "success"].indexOf(e) != -1) {
     e.css("background-color", "rgb(136, 255, 136)");
   } else if (status == "fail"){
     e.css("background-color", "rgb(252, 33, 33)");
