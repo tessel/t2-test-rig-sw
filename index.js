@@ -155,6 +155,7 @@ app.get('/test_bench', function(req, res) {
     heartbeat: new Date().getTime(),
     build: 'abc123',
     deviceBuild: 'abc123',
+    md5: 'md5sum',
     ip: '0.0.0.0',
     gateway: '0.0.0.0',
     ssh: '0.0.0.0',
@@ -225,42 +226,41 @@ app.get('/b/:bench/logs', function (req, res){
 
 // curl -X POST -H "Content-Type: application/json" -d '{"bench":"fried_eggs","data":"herp derp some data"}' http://localhost:5000/b/fried_eggs/logs
 
-// app.post('/b/:bench/logs', function(req, res) {
-//   var log = req.body;
-//   var bench = req.params.bench.toLowerCase();
-//   // console.log("req.body", req.body.device);
-//   // console.log("bench", bench, req.body.device.toLowerCase());
-//   if (bench != req.body.device.toLowerCase()){
-//     console.error("params does not match request", bench, req.body.device);
-//     return res.send(false);
-//   }
-//   // look for a log by this device id
-//   BenchLogs.findAndModify({
-//     query: {device: req.body.device},
-//     update: {
-//       $push: {log: req.body.data}
-//     },
-//     upsert:true
-//   }, function(err, doc, lastErrorObject) {
-//     // emit an event about this log update
+app.post('/b/:bench/logs', function(req, res) {
+  var log = req.body;
+  var bench = req.params.bench.toLowerCase();
+  // console.log("req.body", req.body.device);
+  // console.log("bench", bench, req.body.device.toLowerCase());
+  if (bench != req.body.device.toLowerCase()){
+    console.error("params does not match request", bench, req.body.device);
+    return res.send(false);
+  }
+  // look for a log by this device id
+  BenchLogs.findAndModify({
+    query: {device: req.body.device},
+    update: {
+      $push: {log: req.body.data}
+    },
+    upsert:true
+  }, function(err, doc, lastErrorObject) {
+    // emit an event about this log update
 
-//     if (!err) {
-//       console.log('saved', doc, lastErrorObject);
-//       io.sockets.emit('log_update_'+bench, req.body.data);
-//       res.send(true);
-//     } else { 
-//       console.log("not saved", err, doc);      
-//       res.send(false);
-//     }
-//   });
-// });
+    if (!err) {
+      console.log('saved', req.body.device);
+      io.sockets.emit('log_update_'+bench, req.body.data);
+      res.send(true);
+    } else { 
+      console.log("not saved", req.body.device, err);      
+      res.send(false);
+    }
+  });
+});
 
 app.get('/d/:device/logs', function (req, res){
   var device = req.params.device;
   // find that device as well
   Devices.find({"id": device}, function(err, docs){
     DeviceLogs.findOne({'device': device}, function (err, logs) {
-      // console.log("logs", err, logs);
       res.render('logs', {title: device+' | logs', logs: logs, id: device, type:"Device", devices: docs});
     });
   });
@@ -288,11 +288,11 @@ app.post('/d/:device/logs', function(req, res) {
     // emit an event about this log update
 
     if (!err) {
-      console.log('saved', doc, lastErrorObject);
+      console.log('saved', req.body.device);
       io.sockets.emit('log_update_'+device, req.body.data);
       res.send(true);
     } else { 
-      console.log("not saved", err, doc);      
+      console.log("not saved", req.body.device, err);      
       res.send(false);
     }
   });

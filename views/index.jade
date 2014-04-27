@@ -61,7 +61,7 @@ block content
           th Device
           th Last online
           th build
-          th Device Build
+          th firmware md5
           th ip
           th gateway
           th ssh
@@ -75,13 +75,11 @@ block content
             td(id="#{bench.name}-heartbeat", class="heartbeat")
               =bench.heartbeat
             th
-              a(href='https://github.com/technicalmachine/ScriptStick/tree/#{bench.deviceBuild}', 
+              a(href='https://github.com/tessel/firmware/tree/#{bench.deviceBuild}', 
                 id="#{bench.name}-deviceBuild", class="build")
                 =bench.deviceBuild
-            td
-              a(href='https://github.com/technicalmachine/testalator-device/commit/#{bench.build}', 
-                id="#{bench.name}-build", class="build")
-                =bench.build
+            td(id="#{bench.name}-md5")
+              =bench.md5
             td(id="#{bench.name}-ip")
               =bench.ip
             td(id="#{bench.name}-gateway")
