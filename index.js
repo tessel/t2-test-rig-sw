@@ -50,23 +50,24 @@ app.get('/', function(req, res) {
   //   port: '2222'
   // }];
   var benches = [];
-  Benches.distinct('name', function (err, names){
-    console.log('names', names);
-
-    names.forEach(function (name){
-      console.log('name ', name);
-      Benches.find({'name': name})
-        .limit(1)
-        .sort({'heartbeat': -1}, function (err, record){
-          benches.push(record[0]);
-          // console.log("record ", record[0]);
-          if (benches.length == names.length){
-            console.log("benches ", record);
-            res.render('index', {title: 'Testalator | Technical Machine', 
+  Benches.find(function (err, benches){
+    console.log('names', benches);
+    res.render('index', {title: 'Testalator | Technical Machine', 
               benches: benches});
-          }
-        });
-    })
+    // names.forEach(function (name){
+    //   console.log('name ', name);
+    //   Benches.find({'name': name})
+    //     .limit(1)
+    //     .sort({'heartbeat': -1}, function (err, record){
+    //       benches.push(record[0]);
+    //       // console.log("record ", record[0]);
+    //       if (benches.length == names.length){
+    //         console.log("benches ", record);
+    //         res.render('index', {title: 'Testalator | Technical Machine', 
+    //           benches: benches});
+    //       }
+    //     });
+    // })
   });
   
 });
@@ -170,7 +171,13 @@ app.post('/bench', function(req, res) {
   // insert into database
   console.log("heartbeat", benchHeartbeat);
   benchHeartbeat.heartbeat = new Date().getTime();
-  Benches.save(benchHeartbeat, function(err) {
+  Benches.findAndModify({
+    query: {name: benchHeartbeat.name}
+    , update: {
+      $set: benchHeartbeat
+    }
+    , upsert: true
+  }, function(err, doc){
     if (!err) {
       console.log('saved', benchHeartbeat);      
       // emit heartbeat
@@ -181,11 +188,9 @@ app.post('/bench', function(req, res) {
       res.send(false);
     }
   });
-
 });
 
 // curl -H 'Content-Type: application/json' -d '{"built":"1234", "id":"abc123", "tiFirmware": "v1.2", "firmware": "df93wd", "adc": "pass", "spi": "pass", "i2c": "pass", "gpio": "fail", "ram": "fail", "wifi": "pass", "codeUpload": "pass", "bench": "Pancakes"}' localhost:5000/device
-
 app.post('/d/:device/test', function(req, res) {
   // console.log("request header", req.headers);
   var device = req.body;

@@ -59,6 +59,7 @@ block content
           th SPI test
           th I2C test
           th GPIOs test
+          th Ext Power test
           th WiFi test
       tbody(id="device_table")
         each device in devices
@@ -76,5 +77,6 @@ block content
             td.test=device.sck
             td.test=device.i2c
             td.test=device.pin
+            td.test=device.extPower
             td.test=device.wifi
 

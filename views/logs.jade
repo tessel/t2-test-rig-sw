@@ -41,6 +41,7 @@ block content
           th SPI test
           th I2C test
           th GPIOs test
+          th Ext Power test
           th OTP
           th WiFi test
       tbody
@@ -57,6 +58,7 @@ block content
             td(id="{#device.id}-spi", class="test")=device.sck
             td(id="{#device.id}-i2c", class="test")=device.i2c
             td(id="{#device.id}-gpio", class="test")=device.pin
+            td(id="{#device.id}-otp", class="test")=device.extPower
             td(id="{#device.id}-otp")=device.otp
             td(id="{#device.id}-wifi", class="test")=device.wifi
 
