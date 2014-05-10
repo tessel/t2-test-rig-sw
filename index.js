@@ -127,6 +127,7 @@ app.get('/b/:bench', function(req, res){
   // }];
 
   // find all devices by test bench and sort by date
+  // filter by unique id
   Devices.find({'bench': bench})
     .sort({'built': -1}, function (err, docs){
       res.render('bench', {title: bench+' | Testalator', bench: bench, devices: docs})
@@ -139,7 +140,24 @@ app.post('/device', function(req, res){
   var device = req.body;
   console.log("adding new device", device);
   device.logs = [];
-  Devices.save(device, function(err){
+
+  // Devices.save(device, function(err){
+  //   if (err){
+  //     console.log("could not save new device", err);
+  //     return res.send(false);
+  //   }
+  //   io.sockets.emit('new_device', device);
+  //   console.log('new device added');
+  //   res.send(true);
+  // });
+
+  Devices.findAndModify({
+    query: {id: device.id, bench: device.bench}
+    , update: {
+      $set: device
+    }
+    , upsert: true
+  }, function(err, doc){
     if (err){
       console.log("could not save new device", err);
       return res.send(false);
@@ -150,20 +168,20 @@ app.post('/device', function(req, res){
   });
 });
 
-app.get('/test_bench', function(req, res) {
-  io.sockets.emit('bench_heartbeat', {
-    name: 'fried_eggs',
-    heartbeat: new Date().getTime(),
-    build: 'abc123',
-    deviceBuild: 'abc123',
-    md5: 'md5sum',
-    ip: '0.0.0.0',
-    gateway: '0.0.0.0',
-    ssh: '0.0.0.0',
-    port: '2222'
-  });
-  res.send(true);
-});
+// app.get('/test_bench', function(req, res) {
+//   io.sockets.emit('bench_heartbeat', {
+//     name: 'fried_eggs',
+//     heartbeat: new Date().getTime(),
+//     build: 'abc123',
+//     deviceBuild: 'abc123',
+//     md5: 'md5sum',
+//     ip: '0.0.0.0',
+//     gateway: '0.0.0.0',
+//     ssh: '0.0.0.0',
+//     port: '2222'
+//   });
+//   res.send(true);
+// });
 
 app.post('/bench', function(req, res) {
   // console.log("request header", req.headers);
@@ -218,6 +236,72 @@ app.post('/d/:device/test', function(req, res) {
   });
   
 });
+
+// drop all but the earliest from each bench
+// app.get('/remove', function(){
+//   // Devices.find()
+//   var keys = ["adc", "dac", "extPower", "firmware",
+//       "gpio", "i2c", "otp", "pin", "sck", "spi",
+//       "tiFirmware", "wifi"];
+//   Devices.aggregate({$group: {
+//     _id: {id: "$id", bench: "$bench"},
+//     count: {$sum: 1},
+//     docs: {$push: {_id: "$_id", built: "$built", id: "$id",
+//       adc: "$adc", dac: "$dac", extPower: "$extPower", firmware: "$firmware",
+//       gpio: "$gpio", i2c: "$i2c", otp: "$otp", pin: "$pin", sck: "$sck", spi: "$spi",
+//       tiFirmware: "$tiFirmware", wifi: "$wifi", bench: "$bench"}}
+//   }}, { $match: {
+//     count: {$gt : 1}
+//   }}, function(err, docs){
+//     var count = 0;
+
+//     // console.log(err, docs);
+//     docs.forEach(function(doc){
+//       // console.log(doc.docs);
+//       var sorted = doc.docs.sort(function(a, b){
+//         if (!a.built){
+//           return 1;
+//         }
+//         if (!b.built){
+//           return -1;
+//         }
+//         a = new Date(a.built);
+//         b = new Date(b.built);
+//         return a>b ? -1 : a<b ? 1 : 0;
+//       })
+
+
+//       var keep = doc.docs[0];
+
+//       // aggregate all pass/fails
+//       for(var i =0; i < doc.docs.length; i++){
+//         for (var a = 0; a < keys.length; a++){
+//           console.log(keys[a], doc.docs[i][keys[a]]);
+
+//           if (doc.docs[i][keys[a]] == "passed" || doc.docs[i][keys[a]] == "pass" ){
+//             keep[keys[a]] = doc.docs[i][keys[a]];
+//           }
+//         }
+//       }
+//       delete keep._id;
+//       // console.log("keep", keep);
+
+//       // remove everything
+//       // console.log("remove", doc._id.id, doc._id.bench);
+//       Devices.remove({id: doc._id.id, bench: doc._id.bench}, function(err){
+//         // reinsert keep
+//         Devices.save(keep, function(err, doc){
+//           console.log("saved", keep, count, docs.length);
+
+//           count++;
+//           if (count >= docs.length){
+//             return true;
+//           }
+//         })
+//       });
+//     });
+//   });
+// });
 
 app.get('/b/:bench/logs', function (req, res){
   // find the logs for this bench
