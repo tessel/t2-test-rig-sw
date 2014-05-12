@@ -200,8 +200,8 @@ function run(){
       function (cb) { checkS3(countUrl, powerPath, countMD5Path, cb)}, // count test
       function (cb) { checkS3(s3Url, firmwarePath, firmwareMD5Path, cb)}, // firmware
       function (cb) { closeAll(cb) },
-      function (cb) { setup(cb) },
-      function (cb) { checkOTP(cb, 0)},
+      function (cb) { setup(cb, true) },
+      function (cb) { checkOTP(cb, 0, 0)},
       function (cb) { firmware(firmwarePath, cb) },
       function (cb) { ram(wifiPatchPath, 14000, cb)},
       function (cb) { getBoardInfo(cb) },
@@ -231,7 +231,7 @@ function run(){
           }, 5000);
         });
       });
-      
+
     });
   }); 
 }
@@ -372,11 +372,12 @@ function ram(path, delayLength, callback){
   }, 200);
 }
 
-function checkOTP(callback, tries){
+function checkOTP(callback, otpTries, overallTries){
   // , tries
   var MAX_TRIES = 3;
+  var MAX_OVERALL_TRIES = 2;
   logger.write("starting check OTP");
-  tries++;
+  otpTries++;
   emc(1, function(err) {
     setTimeout(function(){
       rst(function(err){
@@ -408,9 +409,9 @@ function checkOTP(callback, tries){
 
           } else {
             // if it's below max tries, try again
-            if (tries < MAX_TRIES){
-              logger.write("failed on try", tries, "trying again");
-              return checkOTP(callback, tries);
+            if (otpTries < MAX_TRIES){
+              logger.write("failed on try "+otpTries+" trying again");
+              return checkOTP(callback, otpTries, overallTries);
             }
 
             // if it's not found check for other otp.
@@ -419,11 +420,21 @@ function checkOTP(callback, tries){
                 if (err) {
                   // otherwise it's an error
                   logger.write(logger.levels.error, "checkOTP", "cannot find either nxp pid/vid or tessel pid/vid");
-                  
-                  return callback(err);
+                  if (overallTries < MAX_OVERALL_TRIES){
+                    closeAll(function(){
+                      setup(function(){
+                        logger.write("failed overall try "+overallTries+" trying again");
+                        overallTries++;
+                        checkOTP(callback, 0, overallTries);
+                      }, false);
+                    });
+                  } else {
+                    return callback(err);
+                  }
+                } else {
+                  logger.write("already OTP'ed");
+                  callback(null);
                 }
-                logger.write("already OTP'ed");
-                callback(null);
               });
             });
 
@@ -649,7 +660,7 @@ function closeAll(callback){
   });
 }
 
-function setup(callback){
+function setup(callback, wait){
   logger.write("setting up...");
   var funcArray = [];
   [reset, ledDfu, ledFirmware, ledJS, ledPins, 
@@ -668,7 +679,6 @@ function setup(callback){
       });
     });
   });
-  
 
   var calledBack = false;
   
@@ -689,7 +699,8 @@ function setup(callback){
         }
 
         gpio.read(button, function(err, value){
-          if (value == 0 && calledBack == false) {
+          if ( (value == 0 && calledBack == false) || 
+            (wait == false && calledBack == false)) {
             calledBack = true;
             clearInterval(intervalId);
             emc(0, function(){
