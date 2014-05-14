@@ -32,6 +32,7 @@ var A0 = 8,
 
 var  dfu = require("./deps/cli/dfu/tessel-dfu")
   ;
+var emc_state = null;
 
 var TESSEL_VID = 0x1d50;
 var TESSEL_PID = 0x6097;
@@ -203,8 +204,8 @@ function run(){
       function (cb) { setup(cb, true) },
       function (cb) { checkOTP(cb, 0, 0)},
       function (cb) { firmware(firmwarePath, cb) },
-      function (cb) { ram(wifiPatchPath, 14000, cb)},
-      function (cb) { getBoardInfo(cb) },
+      function (cb) { ram(wifiPatchPath, 15000, cb)},
+      function (cb) { getBoardInfo(cb, 0) },
       function (cb) { wifiPatchCheck(cb) },
       function (cb) { jsCheck(jsPath, cb) },
       function (cb) { powerSwitch(powerPath, cb) },
@@ -224,9 +225,9 @@ function run(){
             }
 
             setTimeout(function(){
-              closeAll(function(){
+              // closeAll(function(){
                 process.exit();
-              });
+              // });
             }, 500);
           }, 5000);
         });
@@ -378,46 +379,45 @@ function checkOTP(callback, otpTries, overallTries){
   var MAX_OVERALL_TRIES = 2;
   logger.write("starting check OTP");
   otpTries++;
-  emc(1, function(err) {
-    setTimeout(function(){
-      rst(function(err){
-        if (err) return callback(err);
-        usbCheck(NXP_ROM_VID, NXP_ROM_PID, function(err){
-          // if it is found otp
-          if (!err) {
-            needOTP = true;
-            logger.write("this board should be otped");
+  emc(0, function(err){
+    usbCheck(TESSEL_VID, TESSEL_PID, function(err){
+      if (err) {
+        // check for NXP board
+        emc(1, function(err) {
+          setTimeout(function(){
+            rst(function(err){
+              // if (err) return callback(err);
+              usbCheck(NXP_ROM_VID, NXP_ROM_PID, function(err){
+                // if it is found otp
+                if (!err) {
+                  needOTP = true;
+                  logger.write("this board should be otped");
 
-            dfu.runNXP(otpPath, function(err){
-              if (err) return callback(err);
-              emc(0, function(err){
-                setTimeout(function(){
-                  usbCheck(TESSEL_VID, TESSEL_PID, function(err){
-                    if (err) {
-                      logger.write(logger.levels.error, "checkOTP", "OTP'ed but cannot find tessel pid/vid");
-                      
-                      return callback(err);
-                    } else {
-                      logger.write("done with check OTP");
-                      callback(null);
-                    }
+                  dfu.runNXP(otpPath, function(err){
+                    if (err) return callback(err);
+                    emc(0, function(err){
+                      setTimeout(function(){
+                        usbCheck(TESSEL_VID, TESSEL_PID, function(err){
+                          if (err) {
+                            logger.write(logger.levels.error, "checkOTP", "OTP'ed but cannot find tessel pid/vid");
+                            
+                            return callback(err);
+                          } else {
+                            logger.write("done with check OTP");
+                            callback(null);
+                          }
+                        });
+                      }, 500);
+                    });
                   });
-                }, 500);
-              });
-            });
+                } else {
 
+                  // if it's below max tries, try again
+                  if (otpTries < MAX_TRIES){
+                    logger.write("failed on try "+otpTries+" trying again");
+                    return checkOTP(callback, otpTries, overallTries);
+                  } 
 
-          } else {
-            // if it's below max tries, try again
-            if (otpTries < MAX_TRIES){
-              logger.write("failed on try "+otpTries+" trying again");
-              return checkOTP(callback, otpTries, overallTries);
-            }
-
-            // if it's not found check for other otp.
-            emc(0, function(err){
-              usbCheck(TESSEL_VID, TESSEL_PID, function(err){
-                if (err) {
                   // otherwise it's an error
                   logger.write(logger.levels.error, "checkOTP", "cannot find either nxp pid/vid or tessel pid/vid");
                   if (overallTries < MAX_OVERALL_TRIES){
@@ -431,18 +431,61 @@ function checkOTP(callback, otpTries, overallTries){
                   } else {
                     return callback(err);
                   }
-                } else {
-                  logger.write("already OTP'ed");
-                  callback(null);
                 }
               });
             });
-
-          }
+          }, 500);
         });
-      });
-    }, 500);
+        
+      } else {
+        logger.write("already OTP'ed");
+        callback(null);
+      }
+    });
   });
+
+  // emc(1, function(err) {
+  //   setTimeout(function(){
+  //     rst(function(err){
+  //       // if (err) return callback(err);
+  //       usbCheck(NXP_ROM_VID, NXP_ROM_PID, function(err){
+  //         // if it is found otp
+  //         if (!err) {
+  //           needOTP = true;
+  //           logger.write("this board should be otped");
+
+  //           dfu.runNXP(otpPath, function(err){
+  //             if (err) return callback(err);
+  //             emc(0, function(err){
+  //               setTimeout(function(){
+  //                 usbCheck(TESSEL_VID, TESSEL_PID, function(err){
+  //                   if (err) {
+  //                     logger.write(logger.levels.error, "checkOTP", "OTP'ed but cannot find tessel pid/vid");
+                      
+  //                     return callback(err);
+  //                   } else {
+  //                     logger.write("done with check OTP");
+  //                     callback(null);
+  //                   }
+  //                 });
+  //               }, 500);
+  //             });
+  //           });
+
+
+  //         } else {
+            
+
+  //           // if it's not found check for other otp.
+  //           // emc(0, function(err){
+              
+  //           // });
+
+  //         }
+  //       });
+  //     });
+  //   }, 500);
+  // });
 }
 
 var hardwareResolve = require('hardware-resolve');
@@ -597,8 +640,9 @@ function toggle(led, state, next, timeout){
   });
 }
 
-function getBoardInfo(callback) {
+function getBoardInfo(callback, tries) {
   logger.write("getting board info.");
+  var MAX_TRIES = 3;
   // find the serial and otp
   tessel_usb.findTessel(null, function(err, client){
     tessel = client;
@@ -636,8 +680,15 @@ function getBoardInfo(callback) {
 
       return callback(null);
     } else {
-      console.log("could not get board info");
-      return callback(err);
+      logger.write("could not get board info, resetting and trying again. On Try: "+tries);
+      if (tries < MAX_TRIES){
+        tries = tries +1;
+        rst(function(){
+          getBoardInfo(callback, tries);
+        });
+      } else {
+        return callback(err);
+      }
     }
   });
 }
@@ -664,7 +715,7 @@ function setup(callback, wait){
   logger.write("setting up...");
   var funcArray = [];
   [reset, ledDfu, ledFirmware, ledJS, ledPins, 
-  ledWifi, ledDone, ledError, reset, config, extPwr, usbPwr].forEach(function(element){
+  ledWifi, ledDone, ledError, config, extPwr, usbPwr].forEach(function(element){
     funcArray.push(function(cb){
       gpio.open(element, "output", function(err){
         if (element == usbPwr || element == reset) {
@@ -736,23 +787,47 @@ function emc(enable, callback){
   var funcArray = [];
   [A0, A6, A7, A8].forEach(function(element){
     funcArray.push(function(cb){
-      gpio.close(element, function(){
-        if (enable){
-            gpio.open(element, "output", function(err){
-              gpio.write(element, pinArray[element], function(err) {
+      if (emc_state != enable){
+        // close and then do stuff
+        gpio.close(element, function(){
+          setTimeout(function(){
+            if (enable){
+                gpio.open(element, "output", function(err){
+                  setTimeout(function(){
+                    gpio.write(element, pinArray[element], function(err) {
+                      cb(null);
+                    });
+                  }, 100);
+                });
+            } else {
+              gpio.open(element, "input", function(err){
                 cb(null);
               });
-            });
+            }
+          }, 100);
+        });
+      } else {
+        if (enable){
+          gpio.write(element, pinArray[element], function(err) {
+            cb(null);
+          });
         } else {
           gpio.open(element, "input", function(err){
             cb(null);
           });
         }
-      });
+      }
+      
     });
   });
 
   async.series(funcArray, function(err, res){
+    if (emc_state != enable){
+      console.log("Changed emc state");
+    } else {
+      console.log("emc state is the same");
+    }
+    emc_state = enable;
     setTimeout(function(){
       callback(null);
     }, 300);
