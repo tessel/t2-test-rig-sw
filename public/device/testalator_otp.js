@@ -3,7 +3,7 @@ var gpio = require("pi-gpio");
 var sys = require('sys'),
   exec = require('child_process').exec,
   async = require("async"),
-  fs = require("fs")
+  fs = require("fs"),
   path = require('path'),
   humanize = require('humanize'),
   tessel_usb = require('./deps/cli/src/index.js'),
@@ -195,21 +195,21 @@ function run(){
   needOTP = false;
   setupLogger(function (){
     async.waterfall([
-      function (cb) { checkS3(cc3kUrl, wifiPatchPath, cc3kMD5Path, cb)}, // cc3k patch
-      function (cb) { checkS3(jsUrl, jsPath, jsMD5Path, cb)}, // js test
-      function (cb) { checkS3(otpUrl, otpPath, otpMD5Path, cb)}, // otp
-      function (cb) { checkS3(countUrl, powerPath, countMD5Path, cb)}, // count test
-      function (cb) { checkS3(s3Url, firmwarePath, firmwareMD5Path, cb)}, // firmware
+      // function (cb) { checkS3(cc3kUrl, wifiPatchPath, cc3kMD5Path, cb)}, // cc3k patch
+      // function (cb) { checkS3(jsUrl, jsPath, jsMD5Path, cb)}, // js test
+      // function (cb) { checkS3(otpUrl, otpPath, otpMD5Path, cb)}, // otp
+      // function (cb) { checkS3(countUrl, powerPath, countMD5Path, cb)}, // count test
+      // function (cb) { checkS3(s3Url, firmwarePath, firmwareMD5Path, cb)}, // firmware
       function (cb) { closeAll(cb) },
       function (cb) { setup(cb, true) },
       function (cb) { checkOTP(cb, 0, 0)},
-      function (cb) { firmware(firmwarePath, cb) },
-      function (cb) { ram(wifiPatchPath, 15000, cb)},
-      function (cb) { getBoardInfo(cb, 0) },
-      function (cb) { wifiPatchCheck(cb) },
-      function (cb) { jsCheck(jsPath, cb) },
-      function (cb) { powerSwitch(powerPath, cb) },
-      function (cb) { wifiTest(network, pw, auth, cb)}
+      // function (cb) { firmware(firmwarePath, cb) },
+      // function (cb) { ram(wifiPatchPath, 15000, cb)},
+      // function (cb) { getBoardInfo(cb, 0) },
+      // function (cb) { wifiPatchCheck(cb) },
+      // function (cb) { jsCheck(jsPath, cb) },
+      // function (cb) { powerSwitch(powerPath, cb) },
+      // function (cb) { wifiTest(network, pw, auth, cb)}
     ], function (err, result){
       logger.writeAll("Finished.");
       // make sure Error and Done are off
@@ -229,7 +229,7 @@ function run(){
                 process.exit();
               // });
             }, 500);
-          }, 5000);
+          }, 2000);
         });
       });
 
@@ -379,11 +379,11 @@ function checkOTP(callback, otpTries, overallTries){
   var MAX_OVERALL_TRIES = 2;
   logger.write("starting check OTP");
   otpTries++;
-  emc(0, function(err){
+  // emc(0, function(err){
     usbCheck(TESSEL_VID, TESSEL_PID, function(err){
       if (err) {
         // check for NXP board
-        emc(1, function(err) {
+        // emc(1, function(err) {
           setTimeout(function(){
             rst(function(err){
               // if (err) return callback(err);
@@ -395,7 +395,7 @@ function checkOTP(callback, otpTries, overallTries){
 
                   dfu.runNXP(otpPath, function(err){
                     if (err) return callback(err);
-                    emc(0, function(err){
+                    // emc(0, function(err){
                       setTimeout(function(){
                         usbCheck(TESSEL_VID, TESSEL_PID, function(err){
                           if (err) {
@@ -408,7 +408,7 @@ function checkOTP(callback, otpTries, overallTries){
                           }
                         });
                       }, 500);
-                    });
+                    // });
                   });
                 } else {
 
@@ -435,14 +435,14 @@ function checkOTP(callback, otpTries, overallTries){
               });
             });
           }, 500);
-        });
+        // });
         
       } else {
         logger.write("already OTP'ed");
         callback(null);
       }
     });
-  });
+  // });
 }
 
 var hardwareResolve = require('hardware-resolve');
@@ -711,7 +711,7 @@ function setup(callback, wait){
             (wait == false && calledBack == false)) {
             calledBack = true;
             clearInterval(intervalId);
-            emc(0, function(){
+            // emc(0, function(){
               // not ready anymore
               async.series(funcArray, function (err, results){
                 logger.write("done with setting up");
@@ -720,7 +720,7 @@ function setup(callback, wait){
 
                 }, 1500);
               });
-            });
+            // });
           }
         });
       }, 20);
@@ -730,65 +730,68 @@ function setup(callback, wait){
 }
 
 function emc(enable, callback){
-  var maxNum = 4, 
-    count = 0,
-    pinArray = {};
 
-  pinArray[A0] = 0;
-  pinArray[A6] = 1;
-  pinArray[A7] = 0;
-  pinArray[A8] = 1;
+  callback(null);
 
-  logger.write("setting up external memory controller pins");
+  // var maxNum = 4, 
+  //   count = 0,
+  //   pinArray = {};
 
-  var funcArray = [];
-  [A0, A6, A7, A8].forEach(function(element){
-    funcArray.push(function(cb){
-      if (emc_state != enable){
-        // close and then do stuff
-        gpio.close(element, function(){
-          setTimeout(function(){
-            if (enable){
-                gpio.open(element, "output", function(err){
-                  setTimeout(function(){
-                    gpio.write(element, pinArray[element], function(err) {
-                      cb(null);
-                    });
-                  }, 100);
-                });
-            } else {
-              gpio.open(element, "input", function(err){
-                cb(null);
-              });
-            }
-          }, 100);
-        });
-      } else {
-        if (enable){
-          gpio.write(element, pinArray[element], function(err) {
-            cb(null);
-          });
-        } else {
-          gpio.open(element, "input", function(err){
-            cb(null);
-          });
-        }
-      }
+  // pinArray[A0] = 0;
+  // pinArray[A6] = 1;
+  // pinArray[A7] = 0;
+  // pinArray[A8] = 1;
+
+  // logger.write("setting up external memory controller pins");
+
+  // var funcArray = [];
+  // [A0, A6, A7, A8].forEach(function(element){
+  //   funcArray.push(function(cb){
+  //     if (emc_state != enable){
+  //       // close and then do stuff
+  //       gpio.close(element, function(){
+  //         setTimeout(function(){
+  //           if (enable){
+  //               gpio.open(element, "output", function(err){
+  //                 setTimeout(function(){
+  //                   gpio.write(element, pinArray[element], function(err) {
+  //                     cb(null);
+  //                   });
+  //                 }, 100);
+  //               });
+  //           } else {
+  //             gpio.open(element, "input", function(err){
+  //               cb(null);
+  //             });
+  //           }
+  //         }, 100);
+  //       });
+  //     } else {
+  //       if (enable){
+  //         gpio.write(element, pinArray[element], function(err) {
+  //           cb(null);
+  //         });
+  //       } else {
+  //         gpio.open(element, "input", function(err){
+  //           cb(null);
+  //         });
+  //       }
+  //     }
       
-    });
-  });
+  //   });
+  // });
 
-  async.series(funcArray, function(err, res){
-    if (emc_state != enable){
-      console.log("Changed emc state from", emc_state, "to", enable);
-    } else {
-      console.log("emc state is the same");
-    }
-    emc_state = enable;
-    setTimeout(function(){
-      callback(null);
-    }, 300);
-  });
+  // async.series(funcArray, function(err, res){
+  //   if (emc_state != enable){
+  //     console.log("Changed emc state from", emc_state, "to", enable);
+  //   } else {
+  //     console.log("emc state is the same");
+  //   }
+  //   emc_state = enable;
+  //   setTimeout(function(){
+  //     callback(null);
+  //   }, 300);
+  // });
 }
 
 run();
