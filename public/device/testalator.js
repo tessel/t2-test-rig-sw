@@ -823,7 +823,7 @@ function emc(enable, callback){
 
   async.series(funcArray, function(err, res){
     if (emc_state != enable){
-      console.log("Changed emc state");
+      console.log("Changed emc state from", emc_state, "to", enable);
     } else {
       console.log("emc state is the same");
     }
