@@ -59,6 +59,7 @@ block content
       thead
         tr
           th Device
+          th Programmed
           th Last online
           th build
           th firmware md5
@@ -72,6 +73,8 @@ block content
             td
               a(href="/b/#{bench.name}", id="#{bench.name}-name")
                 =bench.name
+            td
+              =bench.count
             td(id="#{bench.name}-heartbeat", class="heartbeat")
               =bench.heartbeat
             th

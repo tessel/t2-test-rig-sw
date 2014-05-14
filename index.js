@@ -29,6 +29,9 @@ var BenchLogs = db.collection('benchLogs');
 var Devices = db.collection('devices');
 var DeviceLogs = db.collection('deviceLogs');
 
+var auth = express.basicAuth('assembly', 'worthington');
+app.all('*', auth);
+
 app.get('/', function(req, res) {
   // var benches = [{
   //   name: 'Pancakes',
@@ -52,22 +55,23 @@ app.get('/', function(req, res) {
   var benches = [];
   Benches.find(function (err, benches){
     console.log('names', benches);
-    res.render('index', {title: 'Testalator | Technical Machine', 
+    var count = 0;
+    // get number made by each bench
+    benches.forEach(function(bench, i){
+      Devices.find({'bench':bench.name, 'tiFirmware': 'pass'
+        , 'adc': 'passed', 'dac': 'passed', 'sck': 'passed'
+        , 'i2c': 'passed', 'pin': 'passed', 'extPower': 'passed'
+        , 'wifi': 'pass'}, function(err, devices){
+        benches[i].count = devices.length;
+        count++;
+
+        if (count >= benches.length){
+          res.render('index', {title: 'Testalator | Technical Machine', 
               benches: benches});
-    // names.forEach(function (name){
-    //   console.log('name ', name);
-    //   Benches.find({'name': name})
-    //     .limit(1)
-    //     .sort({'heartbeat': -1}, function (err, record){
-    //       benches.push(record[0]);
-    //       // console.log("record ", record[0]);
-    //       if (benches.length == names.length){
-    //         console.log("benches ", record);
-    //         res.render('index', {title: 'Testalator | Technical Machine', 
-    //           benches: benches});
-    //       }
-    //     });
-    // })
+        }
+      });
+    });
+    
   });
   
 });
@@ -130,7 +134,13 @@ app.get('/b/:bench', function(req, res){
   // filter by unique id
   Devices.find({'bench': bench})
     .sort({'built': -1}, function (err, docs){
-      res.render('bench', {title: bench+' | Testalator', bench: bench, devices: docs})
+      var passed = docs.filter(function(doc){
+        return (doc.tiFirmware == 'pass' && doc.adc == 'passed' && doc.dac == 'passed'
+          && doc.sck == 'passed' && doc.i2c == 'passed' && doc.pin == 'passed'
+          && doc.extPower == 'passed' && doc.wifi == 'pass');
+      })
+
+      res.render('bench', {title: bench+' | Testalator', bench: bench, devices: docs, success: passed.length})
     });
 });
 
