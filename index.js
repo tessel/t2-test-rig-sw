@@ -30,7 +30,7 @@ var Devices = db.collection('devices');
 var DeviceLogs = db.collection('deviceLogs');
 
 var auth = express.basicAuth('assembly', 'worthington');
-app.all('*', auth);
+// app.all('*', auth);
 
 app.get('/', function(req, res) {
   // var benches = [{
