@@ -32,7 +32,7 @@ var DeviceLogs = db.collection('deviceLogs');
 var auth = express.basicAuth('assembly', 'worthington');
 // app.all('*', auth);
 
-app.get('/', function(req, res) {
+app.get('/', auth, function(req, res) {
   // var benches = [{
   //   name: 'Pancakes',
   //   heartbeat: new Date().getTime(),
@@ -76,7 +76,7 @@ app.get('/', function(req, res) {
   
 });
 
-app.get('/d/:device', function(req, res){
+app.get('/d/:device', auth, function(req, res){
   var device = req.params.device;
 
   Devices.findOne({'id': device}, function (err, deviceInfo){
@@ -101,7 +101,7 @@ app.get('/d/:device', function(req, res){
 
 // curl -H 'Content-Type: application/json' -d '{"heartbeat":"1234", "name":"Pancakes", "build": "dfghig", "deviceBuild": "df93wd", "ip": "1.1.1.1", "gateway": "1.1.1.1"}' localhost:5000/bench
 
-app.get('/b/:bench', function(req, res){
+app.get('/b/:bench', auth, function(req, res){
   var bench = req.params.bench;
   console.log("got ", bench);
   // var devices = [{
@@ -313,7 +313,7 @@ app.post('/d/:device/test', function(req, res) {
 //   });
 // });
 
-app.get('/b/:bench/logs', function (req, res){
+app.get('/b/:bench/logs', auth, function (req, res){
   // find the logs for this bench
   console.log("finding bench logs");
   var bench = req.params.bench;
@@ -355,7 +355,7 @@ app.post('/b/:bench/logs', function(req, res) {
   });
 });
 
-app.get('/d/:device/logs', function (req, res){
+app.get('/d/:device/logs', auth, function (req, res){
   var device = req.params.device;
   // find that device as well
   Devices.find({"id": device}, function(err, docs){
