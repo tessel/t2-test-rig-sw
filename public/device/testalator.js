@@ -45,6 +45,8 @@ var CC_VER = "1.26";
 
 var tessel = null;
 
+var RETRIES = 3;
+
 var otpPath = path.resolve(__dirname, "bin/tessel-otp-v4.bin"),
   wifiPatchPath = path.resolve(__dirname, "bin/tessel-cc3k-patch.bin"),
   firmwarePath = path.resolve(__dirname, "bin/tessel-firmware.bin"),
@@ -203,13 +205,13 @@ function run(){
       function (cb) { closeAll(cb) },
       function (cb) { setup(cb, true) },
       function (cb) { checkOTP(cb, 0, 0)},
-      function (cb) { firmware(firmwarePath, cb) },
-      function (cb) { ram(wifiPatchPath, 15000, cb)},
+      function (cb) { firmware(firmwarePath, cb, 0) },
+      function (cb) { ram(wifiPatchPath, 15000, cb, 0)},
       function (cb) { getBoardInfo(cb, 0) },
-      function (cb) { wifiPatchCheck(cb) },
-      function (cb) { jsCheck(jsPath, cb) },
-      function (cb) { powerSwitch(powerPath, cb) },
-      function (cb) { wifiTest(network, pw, auth, cb)}
+      function (cb) { wifiPatchCheck(cb, 0) },
+      function (cb) { jsCheck(jsPath, cb, 0) },
+      function (cb) { powerSwitch(powerPath, cb, 0) },
+      function (cb) { wifiTest(network, pw, auth, cb, 0)}
     ], function (err, result){
       logger.writeAll("Finished.");
       // make sure Error and Done are off
@@ -225,11 +227,9 @@ function run(){
             }
 
             setTimeout(function(){
-              // closeAll(function(){
-                process.exit();
-              // });
+              process.exit();
             }, 500);
-          }, 5000);
+          }, 3000);
         });
       });
 
@@ -237,7 +237,7 @@ function run(){
   }); 
 }
 
-function powerSwitch(powerPath, callback){
+function powerSwitch(powerPath, callback, tries){
   tessel.listen(true);
   logger.writeAll("checking power switching");
   var tarbundle = fs.readFileSync(powerPath);
@@ -247,6 +247,17 @@ function powerSwitch(powerPath, callback){
 
   var jsonCount = 0;
   var jsonMaxCount = 3;
+
+  function retry(){
+    tessel.close();
+    tessel.once('close', function(){
+      rst(function(){
+        tries = tries +1;
+        logger.write("Could not get count after power switch, retrying on try "+tries);
+        powerSwitch(powerPath, callback, tries);
+      });
+    });
+  }
 
   // turn on external power
   toggle(extPwr, 1, function(){
@@ -261,8 +272,12 @@ function powerSwitch(powerPath, callback){
           toggle(usbPwr, 1, function(){
             tessel_usb.findTessel(null, function (err, client) {
               if (err) {
-                logger.writeAll(logger.levels.error, "powerSwitch", err);
-                return callback(err);
+                if (tries < RETRIES){
+                  retry();
+                } else {
+                  logger.writeAll(logger.levels.error, "powerSwitch", err);
+                  return callback(err);
+                }
               }
               tessel.listen(true);
 
@@ -276,11 +291,11 @@ function powerSwitch(powerPath, callback){
 
                     // if we get more than 3 counts
                     if (jsonCount >= jsonMaxCount) {
+                      tessel.stop();
                       tessel.removeListener('log', onLog);
                       logger.writeAll("got more than 3 counts, extPwr passed");
                       toggle(ledPins, 1);
                       logger.deviceUpdate("extPower", "passed");
-                      tessel.stop();
                       return callback(null);
                     }
                   }
@@ -288,13 +303,16 @@ function powerSwitch(powerPath, callback){
 
                 // if we don't get the counts within a specified amount of time it failed
                 setTimeout(function(){
-                  console.log("removing event listener");
                   if (count == 0 || jsonCount < jsonMaxCount) {
-                    var err = "Could not get a count after power switch";
-                    tessel.removeListener('log', onLog);
-                    logger.writeAll(err);
-                    logger.deviceUpdate("extPower", "failed");
-                    return callback(err);
+                    if (tries < RETRIES){
+                      retry();
+                    } else {
+                      var err = "Could not get a count after power switch";
+                      tessel.removeListener('log', onLog);
+                      logger.writeAll(err);
+                      logger.deviceUpdate("extPower", "failed");
+                      return callback(err);
+                    }
                   }
                 }, 3000);
               });
@@ -307,11 +325,22 @@ function powerSwitch(powerPath, callback){
   });
 }
 
-function wifiTest(ssid, pw, security, callback){
+function wifiTest(ssid, pw, security, callback, tries){
   logger.writeAll("wifi test connecting to "+ssid+"/"+pw+" with "+security);
   var count = 0;
-  var maxCount = 5;
   tessel.listen(true);
+
+  function retryTest(){
+    console.log("retry Test called");
+    tessel.close();
+    tessel.once('close', function(){
+      rst(function(){
+        tries = tries +1;
+        logger.writeAll("wifi test could not connect, retrying on try "+tries);
+        wifiTest(ssid, pw, security, callback, tries);
+      }, true);
+    });
+  }
 
   var retry = function() {
     tessel.configureWifi(ssid, pw, security, {
@@ -322,11 +351,14 @@ function wifiTest(ssid, pw, security, callback){
         logger.writeAll(logger.levels.error, "wifiTest", "Retrying... #"+count);
 
         count++;
-        if (count > maxCount) {
+        if (count > RETRIES) {
           logger.writeAll(logger.levels.error, "wifiTest", "wifi did not connect");
           logger.deviceUpdate("wifi", false);
-
-          callback("wifi did not connect")
+          if (tries < RETRIES){
+            return retryTest();
+          } else {
+            return callback("wifi did not connect")
+          }
         } else {
           setImmediate(retry);
         }
@@ -344,7 +376,11 @@ function wifiTest(ssid, pw, security, callback){
           } else {
             logger.deviceUpdate("wifi", false);
             logger.writeAll(logger.levels.error,"wifi","wifi connected but could not ping: " +error);
-            callback(error);
+            if (tries < RETRIES){
+              return retryTest();
+            } else {
+              return callback(error);
+            }
           }
         });
       }
@@ -354,14 +390,22 @@ function wifiTest(ssid, pw, security, callback){
   retry();
 }
 
-function ram(path, delayLength, callback){
+function ram(path, delayLength, callback, tries){
   toggle(config, 1, function(){
     rst(function(err){
       setTimeout(function(){
         logger.write("running ram patch on "+path);
         dfu.runRam(fs.readFileSync(path), function(err){
           gpio.write(config, 0, function(){
-            if (err) return callback(err);
+            if (err) {
+              if (tries < RETRIES){
+                tries = tries +1;
+                logger.write("failed ram patch, retrying on try "+ tries);
+                ram(path, delayLength, callback, tries);
+              } else {
+                return callback(err);
+              }
+            }
             console.log("done with running ram");
             setTimeout(function(){
               callback(null);
@@ -374,8 +418,6 @@ function ram(path, delayLength, callback){
 }
 
 function checkOTP(callback, otpTries, overallTries){
-  // , tries
-  var MAX_TRIES = 3;
   var MAX_OVERALL_TRIES = 2;
   logger.write("starting check OTP");
   otpTries++;
@@ -413,7 +455,7 @@ function checkOTP(callback, otpTries, overallTries){
                 } else {
 
                   // if it's below max tries, try again
-                  if (otpTries < MAX_TRIES){
+                  if (otpTries < RETRIES){
                     logger.write("failed on try "+otpTries+" trying again");
                     return checkOTP(callback, otpTries, overallTries);
                   } 
@@ -447,7 +489,19 @@ function checkOTP(callback, otpTries, overallTries){
 
 var hardwareResolve = require('hardware-resolve');
 
-function jsCheck(jsPath, callback){
+function jsCheck(jsPath, callback, tries){
+
+  function retry(){
+    tessel.close();
+    tessel.once('close', function(){
+      rst(function(){
+        tries = tries + 1;
+        logger.write("Retrying jsCheck, on try "+tries);
+        jsCheck(jsPath, callback, tries);
+      }, true);
+    });
+  }
+
   var tarbundle = fs.readFileSync(jsPath);
   tessel.deployBundle(tarbundle, {});
   console.log("done with bundling");
@@ -476,7 +530,12 @@ function jsCheck(jsPath, callback){
 
         logger.writeAll(logger.levels.error, data.jsTest, "failed");
         returned = true;
-        callback("Could not pass js test");
+        if (tries < RETRIES){
+          console.log("retrying");
+          return retry();
+        } else {
+          return callback("Could not pass js test");
+        }
       } else {
         console.log("updating", Object.keys(data)[0], data[Object.keys(data)[0]]);
         logger.deviceUpdate(Object.keys(data)[0], data[Object.keys(data)[0]]);
@@ -486,21 +545,29 @@ function jsCheck(jsPath, callback){
       if (data.indexOf("Error parsing") != -1)
       {
         returned = true;
-        callback(data);
+        if (tries < RETRIES){
+          return retry();
+        } else {
+          return callback(data);
+        }
       }
-      logger.writeAll( data);
+      logger.writeAll(data);
     }
   });
   
   // no response within 10s, its a fail
   setTimeout(function(){
     if (!returned){
-      callback("did not finish js test within 10 seconds");
+      if (tries < RETRIES){
+        return retry();
+      } else {
+        return callback("did not finish js test within 10 seconds");
+      }
     }
   }, 10000);
 }
 
-function wifiPatchCheck(callback){
+function wifiPatchCheck(callback, tries){
   logger.write("wifiPatchCheck beginning.");
   // read wifi version
   var called = false;
@@ -514,33 +581,60 @@ function wifiPatchCheck(callback){
       logger.deviceUpdate("tiFirmware", false);
       logger.writeAll(logger.levels.error, "wifiVersion", data);
       called = true;
-      callback("error, wifi patch did not update");
+      if (tries < RETRIES){
+        tessel.close();
+        tessel.once('close', function(){
+          rst(function(){
+            tries = tries +1;
+            wifiPatchCheck(callback, tries);
+          }, true);
+        });
+      } else {
+        callback("error, wifi patch did not update");
+      }
     }
   });
 }
 
-function firmware(path, callback){
+function firmware(path, callback, tries){
   logger.write("starting firmware write on "+path);
   // config and reset
 
   function dfuFirmware(){
-    logger.write("writing binary on "+path);
-    // console.log(fs.readdirSync(path.resolve(__dirname, "bin")));
-    require('./deps/cli/dfu/tessel-dfu').write(fs.readFileSync(path), function(err){
+    if (tries > 0){
+      setTimeout(function(){
+        writeFirmware();
+      }, 500);
+    } else {
+      writeFirmware();
+    }
+    
+    function writeFirmware(){
+      logger.write("writing binary on "+path);
+      // console.log(fs.readdirSync(path.resolve(__dirname, "bin")));
+      require('./deps/cli/dfu/tessel-dfu').write(fs.readFileSync(path), function(err){
 
-      // make config low
-      gpio.write(config, 0, function(){
+        // make config low
+        gpio.write(config, 0, function(){
 
-        if (err){
-          logger.write(logger.levels.error, "firmware", err);
-          
-          callback(err);
-        } else {
-          toggle(ledFirmware, 1);
-          callback(null);
-        }
+          if (err){
+            logger.write(logger.levels.error, "firmware", err);
+            
+            if (tries < RETRIES){
+              needOTP = false;
+              tries = tries + 1;
+              firmware(path, callback, tries);
+            } else {
+              callback(err);
+            }
+          } else {
+            toggle(ledFirmware, 1);
+            callback(null);
+          }
+        });
       });
-    });
+    }
+    
   }
 
   if (!needOTP) {
@@ -570,7 +664,7 @@ function usbCheck(vid, pid, callback){
   }, 1000);
 }
 
-function rst(callback){
+function rst(callback, acquire){
   logger.write("resetting Tessel");
   gpio.write(reset, 0, function(err) {
     // wait a bit
@@ -578,7 +672,17 @@ function rst(callback){
       gpio.write(reset, 1, function(err) {
         setTimeout(function() {
           logger.write("starting tessel back up");
-          callback(null);
+          if (acquire) {
+            setTimeout(function(){
+              tessel_usb.findTessel(null, function(err, client){
+                tessel = client;
+                logger.write("reaquired tessel");
+                return callback && callback(null)
+              });
+            }, 500);
+          } else {
+            return callback && callback(null);
+          }
         }, 500);
       });
     }, 100);
@@ -599,7 +703,6 @@ function toggle(led, state, next, timeout){
 
 function getBoardInfo(callback, tries) {
   logger.write("getting board info.");
-  var MAX_TRIES = 3;
   // find the serial and otp
   tessel_usb.findTessel(null, function(err, client){
     tessel = client;
@@ -638,11 +741,15 @@ function getBoardInfo(callback, tries) {
       return callback(null);
     } else {
       logger.write("could not get board info, resetting and trying again. On Try: "+tries);
-      if (tries < MAX_TRIES){
-        tries = tries +1;
-        rst(function(){
-          getBoardInfo(callback, tries);
+      if (tries < RETRIES){
+        tessel.close();
+        tessel.once('close', function(){
+          rst(function(){
+            tries = tries +1;
+            getBoardInfo(callback, tries);
+          });
         });
+        
       } else {
         return callback(err);
       }
