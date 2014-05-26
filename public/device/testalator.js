@@ -229,7 +229,7 @@ function run(){
             setTimeout(function(){
               process.exit();
             }, 500);
-          }, 3000);
+          }, 5000);
         });
       });
 
@@ -255,7 +255,7 @@ function powerSwitch(powerPath, callback, tries){
         tries = tries +1;
         logger.write("Could not get count after power switch, retrying on try "+tries);
         powerSwitch(powerPath, callback, tries);
-      });
+      }, true);
     });
   }
 
@@ -494,17 +494,19 @@ function jsCheck(jsPath, callback, tries){
   function retry(){
     tessel.close();
     tessel.once('close', function(){
-      rst(function(){
-        tries = tries + 1;
-        logger.write("Retrying jsCheck, on try "+tries);
-        jsCheck(jsPath, callback, tries);
-      }, true);
+      logger.write("Retrying jsCheck, on try "+tries);
+      firmware(firmwarePath, function(){
+        rst(function(){
+          tries = tries + 1;
+          // do a firmware patch again
+            jsCheck(jsPath, callback, tries);
+        }, true);
+      }, RETRIES);
     });
   }
 
   var tarbundle = fs.readFileSync(jsPath);
   tessel.deployBundle(tarbundle, {});
-  console.log("done with bundling");
   // check for the script to finish
   tessel.listen(true);
   var turnOnLED = false;
@@ -570,30 +572,34 @@ function jsCheck(jsPath, callback, tries){
 function wifiPatchCheck(callback, tries){
   logger.write("wifiPatchCheck beginning.");
   // read wifi version
+  var timeout = 1000 * tries;
   var called = false;
-  tessel.wifiVer(function(err, data){
-    logger.writeAll("wifiPatchCheck", data);
-    if (data == CC_VER) {
-      logger.deviceUpdate("tiFirmware", true);
-      called = true;
-      callback(null);
-    } else {
-      logger.deviceUpdate("tiFirmware", false);
-      logger.writeAll(logger.levels.error, "wifiVersion", data);
-      called = true;
-      if (tries < RETRIES){
-        tessel.close();
-        tessel.once('close', function(){
-          rst(function(){
-            tries = tries +1;
-            wifiPatchCheck(callback, tries);
-          }, true);
-        });
+
+  setTimeout(function(){
+    tessel.wifiVer(function(err, data){
+      logger.writeAll("wifiPatchCheck", data);
+      if (data == CC_VER) {
+        logger.deviceUpdate("tiFirmware", true);
+        called = true;
+        callback(null);
       } else {
-        callback("error, wifi patch did not update");
+        logger.deviceUpdate("tiFirmware", false);
+        logger.writeAll(logger.levels.error, "wifiVersion", data);
+        called = true;
+        if (tries < RETRIES){
+          tessel.close();
+          tessel.once('close', function(){
+            rst(function(){
+              tries = tries +1;
+              wifiPatchCheck(callback, tries);
+            }, true);
+          });
+        } else {
+          callback("error, wifi patch did not update");
+        }
       }
-    }
-  });
+    });
+  }, timeout);
 }
 
 function firmware(path, callback, tries){
@@ -629,7 +635,11 @@ function firmware(path, callback, tries){
             }
           } else {
             toggle(ledFirmware, 1);
-            callback(null);
+            // delay a little for bootup
+
+            setTimeout(function(){
+              callback(null);
+            }, 1000);
           }
         });
       });
@@ -742,13 +752,24 @@ function getBoardInfo(callback, tries) {
     } else {
       logger.write("could not get board info, resetting and trying again. On Try: "+tries);
       if (tries < RETRIES){
-        tessel.close();
-        tessel.once('close', function(){
+
+        function retry(){
           rst(function(){
             tries = tries +1;
-            getBoardInfo(callback, tries);
+            setTimeout(function(){
+              getBoardInfo(callback, tries);
+            }, 500);
           });
-        });
+        }
+
+        if (tessel){
+          tessel.close();
+          tessel.once('close', function(){
+            retry();
+          });
+        } else {
+          retry();
+        }
         
       } else {
         return callback(err);
