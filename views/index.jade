@@ -1,0 +1,71 @@
+extends layout
+
+block head
+  script
+    $(function(){
+      var statusColors = {'In Progress': '#f08a24', 'Pass': '#43AC6A', 'Fail': '#f04124'};
+      
+      function switchStatus(text, ele) {
+        $(ele.children('.statusText')[0]).html(text);
+        ele.css('background-color', statusColors[text] ? statusColors[text] : '');
+        
+        // if status is a fail, then also display retry button
+        if (text == 'Fail') {
+          $(ele.children('.retry')[0]).show();
+        } else {
+          // do not display retry
+          $(ele.children('.retry')[0]).hide();
+        }
+      }
+      var socket = io.connect();
+      socket.on('test', function(data){
+        var testStatus = $('#'+data.rig+"-"+data.test+"-status");
+        if (data.clear) {
+          // reset all to untested
+          $('.'+data.rig+'-status').each(function(i, ele){
+            switchStatus("", $(ele));
+          });
+        }
+        if (data.status == 1) {
+          switchStatus('Pass', $('#'+data.rig+'-'+data.test+'-status'));
+        } else if (data.status < 0) {
+          switchStatus('Fail', $('#'+data.rig+'-'+data.test+'-status'));
+        } else if (data.status == 0) {
+          switchStatus('In Progress', $('#'+data.rig+'-'+data.test+'-status'));
+        }
+        $('.'+data.rig+"-deviceId").html(data.device);
+      });
+      socket.on('done', function(data){
+        // tests are finished
+        // show test button
+        $('#'+data.rig+'-test-all').removeClass('disabled');
+      });
+      $('.test').on('click', function(){
+        var rigId = $(this).attr('rig');
+        var testId = $(this).attr('test');
+        socket.emit('retry', {rig: rigId, test: testId});
+      });
+
+    })
+
+block content
+  h3 #{name} | Host
+  table
+    thead
+      tr
+        th Rig
+        th Device
+        each test in tests
+          th #{test}
+    tbody
+        each rig in rigs
+          tr
+            td 
+              | #{rig.id} 
+              .div
+                .button.test(rig="#{rig.id}", test="all", id="#{rig.id}-test-all") Test
+            td.deviceId(class="#{rig.id}-deviceId")
+            each test in tests
+              td.testingStatus(class="#{rig.id}-status", id="#{rig.id}-#{test}-status")
+                .div.statusText
+                .button.test.retry(rig="#{rig.id}", test="#{test}") Test
