@@ -38,7 +38,7 @@ block head
           obj.attr('href', url);
         }
         // update the inner text
-        if (key=='heartbeat'){
+        if (key=='time'){
           obj.text(formatDate(bench[key]));
         } else if (key =='build'){
           obj.text(formatBuild(bench[key]));
@@ -80,7 +80,7 @@ block content
                   a(href="/r/#{rig}") #{rig}
             td
               =bench.count
-            td(id="#{bench.name}-heartbeat", class="heartbeat")
+            td(id="#{bench.name}-time", class="time")
               =bench.time
             th
               a(href='https://github.com/tessel/t2-firmware/tree/#{bench.deviceBuild}', 

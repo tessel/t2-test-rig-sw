@@ -56,9 +56,13 @@ function highlight(e, pos){
 
 function passFail(e){
   var status = e.html().toLowerCase();
-  if (["pass", "true", "passed", "success"].indexOf(status) != -1) {
+  if (["pass", "true", "passed", "success"].indexOf(status) != -1
+    || Number(status) > 0) {
     e.css("background-color", "rgb(136, 255, 136)");
-  } else if (['fail', "failed"].indexOf(status) != -1){
+  } else if (['fail', "failed"].indexOf(status) != -1
+    || Number(status) < 0 ){
     e.css("background-color", "rgb(252, 33, 33)");
+  } else if (Number(status) == 0) {
+    e.html("");
   }
 }

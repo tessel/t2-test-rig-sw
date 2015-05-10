@@ -72,29 +72,16 @@ app.get('/d/:device', auth, function(req, res){
 
 app.get('/b/:bench', auth, function(req, res){
   var bench = req.params.bench;
-
   // find all devices by test bench and sort by date
   // filter by unique id
-  var tests = Object.keys(config.tests);
   Devices.find({'bench': bench})
     .sort({'built': -1}, function (err, docs){
       var succesNum = docs.reduce(function(pre, current){
-        for (var i = 0; i < tests.length; i++) {
-          if (pre[tests[i]] != 1) {
-            return pre;
-          }
+        for (var i = 0; i < config.tests.length; i++) {
+          if (current[config.tests[i]] != 1) return pre;
         }
-
-        return pre++;
+        return ++pre;
       }, 0);
-      // var passed = docs.filter(function(doc){
-      //   // return only devices that have passed all tests
-      //   // tests.forEach(function(test))
-      //   return (doc.tiFirmware == 'pass' && doc.adc == 'passed' && doc.dac == 'passed'
-      //     && doc.sck == 'passed' && doc.i2c == 'passed' && doc.pin == 'passed'
-      //     && doc.extPower == 'passed' && doc.wifi == 'pass');
-      // })
-
       res.render('bench', {title: bench+' | Testalator', bench: bench, devices: docs, tests: config.tests, success: succesNum})
     });
 });
@@ -149,13 +136,15 @@ app.post('/bench', function(req, res) {
 // curl -H 'Content-Type: application/json' -d '{"built":"1234", "id":"abc123", "tiFirmware": "v1.2", "firmware": "df93wd", "adc": "pass", "spi": "pass", "i2c": "pass", "gpio": "fail", "ram": "fail", "wifi": "pass", "codeUpload": "pass", "bench": "Pancakes"}' localhost:5000/device
 app.post('/d/:device/test', function(req, res) {
   // console.log("request header", req.headers);
-  var device = req.body.device;
+  var id = req.body.id;
+  var test = req.body.test;
+  var status = req.body.status;
   var updateTest = {};
-  updateTest[req.body.test] = req.body.status;
+  updateTest[test] = status;
   // insert into database
-  console.log("device", req.body.device);
+  console.log("device", req.body.id);
   Devices.findAndModify({
-    query: {id: device.id, bench:device.bench, rig: device.rig},
+    query: {id: id, bench:req.body.bench, rig: req.body.rig},
     update: {
       $set: updateTest
     },
@@ -164,8 +153,8 @@ app.post('/d/:device/test', function(req, res) {
     if (!err) {
       console.log('saved', doc);      
       // emit heartbeat
-      io.sockets.emit('device_update_'+req.body.device, {"test": req.body.test, "status": req.body.status});
-      io.sockets.emit('device_update', {"device":req.body.device, "test": req.body.test, "status": req.body.status});
+      io.sockets.emit('device_update_'+id, {"test": test, "status": status});
+      io.sockets.emit('device_update', {"id":id, "test": test, "status": status});
       res.send(true);
     } else { 
       console.log("not saved", err, doc);

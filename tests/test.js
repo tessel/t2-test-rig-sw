@@ -3,14 +3,14 @@ var request = require('request');
 var host = "http://localhost:3000";
 
 var tests = require('../config.json').tests;
-var passing = {};
-tests.forEach(function(test){
-  passing[test] = 1;
-});
+// var passing = {};
+// tests.forEach(function(test){
+//   passing[test] = 1;
+// });
 
 // bench | /bench
 function newBench(){
-  request.post(host+'/bench', {body: {name:"host 1", 
+  request.post(host+'/bench', {body: {name:"host_1", 
     time: new Date().getTime(), build: 'abc123', 
     deviceBuild: 'dabc123', md5:'md5sum', ip: '0.0.0.0', 
     gateway:'0.0.0.0', ssh: '0.0.0.0', port:'2222',
@@ -26,38 +26,77 @@ function newBenchLog(bench, data){
   }});
 }
 
-var device = {id:"device 1", bench: "host 1",
+var device = {id:"device_1", bench: "host_1",
   time: new Date().getTime(), build: "devicebuild123",
   rig: "rig 1"};
 
+function copyDevice(id){
+  var body = {};
+  Object.keys(device).forEach(function(key){
+    body[key] = device[key];
+  })
+
+  if (id) {
+    body.id = id;
+  }
+  return body;
+}
+
 // device | /device
-function newDevice() {
-  var body = device;
-  for (var key in passing) {
-    body[key] = passing[key];
+function newDevice(deviceId, testStatus) {
+  var body = copyDevice(deviceId);
+  
+  for (var i in tests) {
+    body[tests[i]] = testStatus ? testStatus : 0;
   }
   console.log("body", body);
 
   request.post(host+'/device', {body: body, json: true});
 }
 
+function newDevices(deviceArr, testStatus) {
+  var i = 0;
+  var interval = setInterval(function(){
+    if (i == deviceArr.length) {
+      clearInterval(interval);
+      return;
+    }
+
+    newDevice(deviceArr[i], testStatus);
+    i++;
+  }, 1000);
+}
+
 // device test | /d/:device/test
-function updateDevice() {
-  var body = device;
+function updateDevice(deviceId, testStatus) {
+  var body = copyDevice(deviceId);
 
   var i = 0;
   var interval = setInterval(function(){
-    if (i > tests.length) {
+    if (i >= tests.length) {
       clearInterval(interval);
       return;
     }
 
     var tempBody = body;
-    tempBody['test'] = test[i];
-    tempBody['status'] = 1;
+    tempBody['test'] = tests[i];
+    tempBody['status'] = testStatus;
     
     // do a new test update every second
-    request.post(host+'/device', {"body": tempBody});
+    request.post(host+'/d/'+deviceId+'/test', {"body": tempBody, json: true});
+    i++;
+  }, 1000);
+}
+
+function updateDevices(deviceArr, testStatus) {
+  var i = 0;
+  var interval = setInterval(function(){
+    if (i == deviceArr.length) {
+      clearInterval(interval);
+      return;
+    }
+
+    updateDevice(deviceArr[i], testStatus);
     i++;
   }, 1000);
 }
@@ -73,4 +112,6 @@ function newBenchLog(device, data){
 // rig log?
 
 // newBench();
-newDevice();
+// newDevice();
+// newDevices(["d1", "d2", "d3"], 0);
+updateDevices(["d1", "d2", "d3"], 1);

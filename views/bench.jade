@@ -4,40 +4,33 @@ block head
   script
     var socket = io.connect();
     var bench = "#{bench}";
-    var tests = "#{tests}";
+    var tests = !{JSON.stringify(tests)};
     var gitLink = "https://github.com/tessel/v2-firmware/tree/";
     socket.on('new_device', function (device) {
       // check if this is the right bench
       console.log("Got some data: ", device);
       if (device.bench != bench) return;
       // otherwise insert a new row
-      var tbl = $("#device_table");      
-      tbl.prepend($('<tr>')
-        .append($('<td>').text(device.built))
+      // var tbl = $("#device_table");   
+      var tblRow = $('<tr>');
+      tblRow
+        .append($('<td>').text(device.time))
         .append($('<td>').text(device.rig))
         .append($('<td>')
-          .append($('<a>').attr('href', "/d/"+device.id+"/logs").text(device.id)
-          ))
+          .append($('<a>').attr('href', "/d/"+device.id+"/logs").text(device.id))
+        )
         .append($('<td>')
-          .append($('<a>').attr('href', gitLink+device.firmware).text(device.firmware)
-          ));
-
+          .append($('<a>').attr('href', gitLink+device.build).text(device.build))
+        );
       // append for each test
-      tests.forEach(function(test){
-        tbl.append($('<td>').addClass("test").text(device[test]));
-        });
-        // .append($('<td>').addClass("test").text(device.tiFirmware))
-        // .append($('<td>').addClass("test").text(device.adc))
-        // .append($('<td>').addClass("test").text(device.spi))
-        // .append($('<td>').addClass("test").text(device.i2c))
-        // .append($('<td>').addClass("test").text(device.gpio))
-        // .append($('<td>').addClass("test").text(device.ram))
-        // .append($('<td>').addClass("test").text(device.wifi))
-      );
+      for (i in tests){
+        tblRow.append($('<td>').addClass("test").text(device[tests[i]]));
+      }
+      $("#device_table").prepend(tblRow);
     }); 
     socket.on('device_update', function (data) {
-      console.log("got device update", data);
-      var test = $("#{id}-"+data.test);
+      console.log("got device update", data, data.id+"-"+data.test);
+      var test = $('#'+data.id+"-"+data.test);
       test.html(data.status);
       // change the status
       passFail(test);
@@ -68,7 +61,9 @@ block content
         each device in devices
           tr
             td=device.time
-            td=device.rig
+            td
+              a(href="/r/#{device.rig}")
+                =device.rig
             td
               a(href="/d/#{device.id}/logs")
                 =device.id
@@ -76,6 +71,6 @@ block content
               a(href="https://github.com/tessel/v2-firmware/tree/#{device.firmware}")
                 =device.firmware
             each test in tests
-              td.test
+              td.test(id="#{device.id}-#{test}")
                 | #{device[test]}
 
