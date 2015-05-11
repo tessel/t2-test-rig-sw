@@ -3,14 +3,15 @@ extends layout
 block head
   script
     var socket = io.connect();
-    var bench = "#{bench}";
+    var id = "#{id}";
+    var type = "#{type}";
     var tests = !{JSON.stringify(tests)};
     var gitLink = "https://github.com/tessel/v2-firmware/tree/";
     socket.on('new_device', function (device) {
       // check if this is the right bench
       if (DEBUG) console.log("new_device: ", device);
       
-      if (device.bench != bench) return;
+      if (device[type] != id) return;
       // otherwise insert a new row
       // var tbl = $("#device_table");  
       var formatted = formatDate(device.time); 
@@ -27,9 +28,18 @@ block head
         );
       // append for each test
       for (i in tests){
-        tblRow.append($('<td>').addClass("test").text(device[tests[i]]));
+        tblRow.append($('<td>')
+          .append($('<a>')
+            .attr('id', device.id+'-'+tests[i])
+            .attr('href', "/logs?device="+device.id+"&test="+tests[i])
+            .addClass("test").text(device[tests[i]])
+          )
+        );
       }
       $("#device_table").prepend(tblRow);
+      tblRow.find('.test').each(function(i, e){
+        passFail($(e));
+      })
     }); 
     socket.on('device_update', function (data) {
       if (DEBUG) console.log("device_update:", data, data.id+"-"+data.test);
@@ -38,28 +48,22 @@ block head
       // change the status
       passFail(test);
     });
-    $(function(){
-      $(".test").each(function(e){
-        passFail($(this));
-      });
-      $(".time").each(function(item){
-        var formatted = formatDate(Number($(this).html()));
-        $(this).html(formatted);
-      });
-    });
 
 block content
   .row
-    h2 #{bench} | Programming bench 
+    h2 #{id} | Programming #{type} 
     p #{success} successful, #{devices.length} total
-  a(href="/b/#{bench}/logs") Logs
+  a(href="/#{type[0]}/#{id}/logs") Logs
   h3 Devices programmed
   #tessels
     table
       thead
         tr
           th Time
-          th Rig
+          if type == "bench"
+            th Rig
+          else
+            th Host
           th Device ID
           th Build
           each test in tests
@@ -68,9 +72,14 @@ block content
         each device in devices
           tr
             td.time=device.time
-            td
-              a(href="/r/#{device.rig}")
-                =device.rig
+            if type == "bench"
+              td
+                a(href="/r/#{device.rig}")
+                  =device.rig
+            else
+              td
+                a(href="/b/#{device.bench}/logs")
+                  =device.bench
             td
               a(href="/d/#{device.id}/logs")
                 =device.id
@@ -78,6 +87,6 @@ block content
               a(href="https://github.com/tessel/v2-firmware/tree/#{device.firmware}")
                 =device.build
             each test in tests
-              td.test(id="#{device.id}-#{test}")
-                | #{device[test]}
-
+              td
+                a(id="#{device.id}-#{test}", href="/logs?device=#{device.id}&test=#{test}").test
+                  | #{device[test]}

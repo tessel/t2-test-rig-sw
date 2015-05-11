@@ -3,11 +3,7 @@ extends layout
 block head
   script
     $(function() {
-      // format dates and times
-      $(".time").each(function(item){
-        var formatted = formatDate(Number($(this).html()));
-        $(this).html(formatted);
-      });
+      
       $(".build").each(function(item){
         var formatted = formatBuild($(this).html());
         $(this).html(formatted);
