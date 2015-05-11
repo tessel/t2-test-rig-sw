@@ -103,11 +103,8 @@ function newLog(identifiers, data) {
 }
 
 
-// rig log?
-
-// newBench();
-// newDevice();
-// newDevices(["d1", "d2", "d3"], 0);
-// updateDevices(["d1", "d2", "d3"], 1);
-updateDevices(["d1"], 1);
+newBench();
+newDevice();
+newDevices(["d1", "d2", "d3"], 0);
+updateDevices(["d1", "d2", "d3"], 1);
 
