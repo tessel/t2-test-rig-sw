@@ -1,34 +1,27 @@
 var request = require('request');
-
 var host = "http://localhost:3000";
-
 var tests = require('../config.json').tests;
-// var passing = {};
-// tests.forEach(function(test){
-//   passing[test] = 1;
-// });
+
+function formatLog(date, test, level, data){
+  return "["+date+"]["+test+"]["+level+"]:"+JSON.stringify(data);
+}
 
 // bench | /bench
 function newBench(){
-  request.post(host+'/bench', {body: {name:"host_1", 
-    time: new Date().getTime(), build: 'abc123', 
-    deviceBuild: 'dabc123', md5:'md5sum', ip: '0.0.0.0', 
+  var date = new Date().getTime();
+  var bench = {id:"host_1", 
+    time: date, build: 'abc123', 
+    build: 'dabc123', md5:'md5sum', ip: '0.0.0.0', 
     gateway:'0.0.0.0', ssh: '0.0.0.0', port:'2222',
-    rigs: ['rig1', 'rig2']}, json: true
-  });
-}
+    rigs: ['rig1', 'rig2']};
 
-// bench log | /b/:bench/logs
-function newBenchLog(bench, data){
-  var bench = encodeURIComponent(bench);
-  request.post(host+'/b/'+bench+'/logs', {body: {
-    "device": bench, "data": data
-  }});
+  request.post(host+'/bench', {body: bench, json: true});
+  newLog({bench: "host_1"}, formatLog(date, "New", "Info", bench));
 }
 
 var device = {id:"device_1", bench: "host_1",
   time: new Date().getTime(), build: "devicebuild123",
-  rig: "rig 1"};
+  rig: "rig_1"};
 
 function copyDevice(id){
   var body = {};
@@ -52,6 +45,7 @@ function newDevice(deviceId, testStatus) {
   console.log("body", body);
 
   request.post(host+'/device', {body: body, json: true});
+  newLog({"device": body.id, "bench": body.bench, "rig": body.rig}, formatLog(new Date().getTime(), "New", "Info", body));
 }
 
 function newDevices(deviceArr, testStatus) {
@@ -83,7 +77,10 @@ function updateDevice(deviceId, testStatus) {
     tempBody['status'] = testStatus;
     
     // do a new test update every second
-    request.post(host+'/d/'+deviceId+'/test', {"body": tempBody, json: true});
+    request.post(host+'/d/'+body.id+'/test', {"body": tempBody, json: true});
+    newLog({"device": body.id, "bench": body.bench, "rig": body.rig}, 
+      formatLog(new Date().getTime(), tempBody.test, 
+        tempBody['status'] ? "Info" : "Err", "here is some data about test "+tempBody.test));
     i++;
   }, 1000);
 }
@@ -101,17 +98,16 @@ function updateDevices(deviceArr, testStatus) {
   }, 1000);
 }
 
-// device log | /d/:device/logs
-function newBenchLog(device, data){
-  var device = encodeURIComponent(device);
-  request.post(host+'/d/'+device+'/logs', {body: {
-    "device": device, "data": data
-  }});
+function newLog(identifiers, data) {
+  request.post(host+'/logs', {body: { "identifiers":  identifiers, "data": data }, json: true});
 }
+
 
 // rig log?
 
 // newBench();
 // newDevice();
 // newDevices(["d1", "d2", "d3"], 0);
-updateDevices(["d1", "d2", "d3"], 1);
+// updateDevices(["d1", "d2", "d3"], 1);
+updateDevices(["d1"], 1);
+

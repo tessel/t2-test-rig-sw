@@ -8,13 +8,16 @@ block head
     var gitLink = "https://github.com/tessel/v2-firmware/tree/";
     socket.on('new_device', function (device) {
       // check if this is the right bench
-      console.log("Got some data: ", device);
+      if (DEBUG) console.log("new_device: ", device);
+      
       if (device.bench != bench) return;
       // otherwise insert a new row
-      // var tbl = $("#device_table");   
+      // var tbl = $("#device_table");  
+      var formatted = formatDate(device.time); 
       var tblRow = $('<tr>');
+      
       tblRow
-        .append($('<td>').text(device.time))
+        .append($('<td>').text(formatted))
         .append($('<td>').text(device.rig))
         .append($('<td>')
           .append($('<a>').attr('href', "/d/"+device.id+"/logs").text(device.id))
@@ -29,7 +32,7 @@ block head
       $("#device_table").prepend(tblRow);
     }); 
     socket.on('device_update', function (data) {
-      console.log("got device update", data, data.id+"-"+data.test);
+      if (DEBUG) console.log("device_update:", data, data.id+"-"+data.test);
       var test = $('#'+data.id+"-"+data.test);
       test.html(data.status);
       // change the status
@@ -38,6 +41,10 @@ block head
     $(function(){
       $(".test").each(function(e){
         passFail($(this));
+      });
+      $(".time").each(function(item){
+        var formatted = formatDate(Number($(this).html()));
+        $(this).html(formatted);
       });
     });
 
@@ -60,7 +67,7 @@ block content
       tbody(id="device_table")
         each device in devices
           tr
-            td=device.time
+            td.time=device.time
             td
               a(href="/r/#{device.rig}")
                 =device.rig
@@ -69,7 +76,7 @@ block content
                 =device.id
             td
               a(href="https://github.com/tessel/v2-firmware/tree/#{device.firmware}")
-                =device.firmware
+                =device.build
             each test in tests
               td.test(id="#{device.id}-#{test}")
                 | #{device[test]}

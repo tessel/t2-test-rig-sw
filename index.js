@@ -5,7 +5,7 @@ var app = express();
 var http = require('http');
 var server = http.createServer(app);
 
-var io = require('socket.io').listen(server);
+var io = require('socket.io').listen(server, {log:false});
 io.set('transports', ['xhr-polling']);
 io.set('polling duration', 10);
 var config = require('./config.json');
@@ -20,17 +20,15 @@ app.use(express.bodyParser());
 app.use(express.methodOverride());
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.favicon('public/images/favicon.ico')); 
+app.use(express.favicon('public/favicon.ico')); 
 
 var mongojs = require('mongojs');
 console.log("environment", process.env.NODE_ENV);
 var db = mongojs(process.env.NODE_ENV == 'production' ? process.env.MONGOLAB_URI : 'localhost');
 var Benches = db.collection('benches');
-var BenchLogs = db.collection('benchLogs');
 var Rigs = db.collection('rigs');
-var RigLogs = db.collection('rigLogs');
 var Devices = db.collection('devices');
-var DeviceLogs = db.collection('deviceLogs');
+var Logs = db.collection('logs');
 
 var auth = express.basicAuth(config.auth_id, config.auth_pw);
 
@@ -46,7 +44,7 @@ app.get('/', auth, function(req, res) {
     // get number made by each bench
     benches.forEach(function(bench, i){
       query = tests;
-      query['bench'] = bench.name;
+      query['bench'] = bench.id;
       Devices.find(query, function(err, devices){
         benches[i].count = devices.length;
         count++;
@@ -164,15 +162,10 @@ app.post('/d/:device/test', function(req, res) {
   
 });
 
-function newLog(logDB, deviceId, bodyData, cb) {
-  if (deviceId != bodyData.device.toLowerCase()){
-    console.error("params does not match request", deviceId, bodyData);
-    return cb(false);
-  }
-
-  var logDB;
-  logDB.findAndModify({
-    query: {device: deviceId},
+function newLog(logQuery, data, cb) {
+  var key = Object.keys(logQuery)[0];
+  Logs.findAndModify({
+    query: logQuery,
     update: {
       $push: {log: data}
     },
@@ -181,32 +174,44 @@ function newLog(logDB, deviceId, bodyData, cb) {
     // emit an event about this log update
 
     if (!err) {
-      console.log('saved', deviceId);
-      io.sockets.emit('log_update_'+deviceId, data);
+      console.log('saved log', logQuery, data);
+      io.sockets.emit('log_update_'+logQuery[key], data);
       cb(true);
     } else { 
-      console.log("not saved", deviceId, err);      
+      console.log("not saved", identifiers, err);      
       cb(false);
     }
   });
 }
 
-app.post('/b/:bench/logs', function(req, res) {
-  newLog(BenchLogs, req.params.bench.toLowerCase(), req.body, function(logged){
-    return res.send(logged);
-  });
-});
+app.post('/logs', function(req, res){
+  var identifiers = Object.keys(req.body.identifiers);
+  var i = 0;
+  var success = true;
 
-app.post('/d/:device/logs', function(req, res) {
-  newLog(BenchLogs, req.params.bench.toLowerCase(), req.body, function(logged){
-    return res.send(logged);
-  });
-});
+  (function pushLog(){
+    var key = identifiers[i];
+    var obj = {};
+    obj[key] = req.body.identifiers[key];
+    
+    newLog(obj, 
+      req.body.data, function(logged){
+      success = success & logged;
 
+      i++;
+      if (i >= identifiers.length){
+        return res.send(success);
+      } else {
+        pushLog();
+      }
+    });
+  })();
+})
 
 app.get('/b/:bench/logs', auth, function (req, res){
   var bench = req.params.bench;
-  BenchLogs.findOne({'device': bench}, function (err, logs) {
+  Logs.findOne({'bench': bench}, function (err, logs) {
+    console.log("logs", logs)
     // console.log("logs", err, logs);
     res.render('logs', {title: bench+' | logs', logs: logs, id: bench, type:"Bench", tests: config.tests});
   });
@@ -215,7 +220,8 @@ app.get('/b/:bench/logs', auth, function (req, res){
 app.get('/d/:device/logs', auth, function (req, res){
   var device = req.params.device;
   Devices.find({"id": device}, function(err, docs){
-    DeviceLogs.findOne({'device': device}, function (err, logs) {
+    Logs.findOne({'device': device}, function (err, logs) {
+      console.log("device logs", logs, device);
       res.render('logs', {title: device+' | logs', logs: logs, id: device, type:"Device", devices: docs, tests: config.tests});
     });
   });

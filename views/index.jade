@@ -4,7 +4,7 @@ block head
   script
     $(function() {
       // format dates and times
-      $(".heartbeat").each(function(item){
+      $(".time").each(function(item){
         var formatted = formatDate(Number($(this).html()));
         $(this).html(formatted);
       });
@@ -14,7 +14,7 @@ block head
       });
       setInterval(function() {
         // go through all the ping times, if it hasn't pinged in 5 min, highlight it
-        $(".heartbeat").each(function(item){
+        $(".time").each(function(item){
           if ( (new Date() - new Date($(this).html())) > (5 * 60 * 1000)){
             $(this).closest('tr').css('background-color', "red");
           }
@@ -23,15 +23,13 @@ block head
     });
     // on startup format dates
     socket.on('bench_heartbeat', function (bench) {
-      console.log("Got some data: ", bench);
+      if (DEBUG) console.log("bench_heartbeat: ", bench);
       // find bench by id, update all the data
       // $('#'+bench.name+'')
-      var name = bench.name;
+      var name = bench.id;
       Object.keys(bench).forEach(function(key){
-        // console.log("key ", key);
         // if this is a link update the last part before the '/'
         var obj = $('#'+name+'-'+key);
-        // console.log('looking for obj '+ '#'+name+'-'+key);
         if (obj.is('a')){
           var url = obj.attr('href');
           url = url.substring(0, url.lastIndexOf('/')+1)+bench[key];
@@ -45,7 +43,7 @@ block head
         }
       });
       // flash the change
-      highlightYellow($("#"+name+"-name").closest('tr'));
+      highlightYellow($("#"+name+"-id").closest('tr'));
     });
       
 
@@ -58,7 +56,7 @@ block content
     table
       thead
         tr
-          th Device
+          th Host
           th Rigs
           th Programmed
           th Last online
@@ -72,25 +70,25 @@ block content
         each bench in benches
           tr
             td
-              a(href="/b/#{bench.name}", id="#{bench.name}-name")
-                =bench.name
+              a(href="/b/#{bench.id}", id="#{bench.id}-id")
+                =bench.id
             td
               each rig in bench.rigs
                 .div
                   a(href="/r/#{rig}") #{rig}
             td
               =bench.count
-            td(id="#{bench.name}-time", class="time")
+            td(id="#{bench.id}-time", class="time")
               =bench.time
             th
-              a(href='https://github.com/tessel/t2-firmware/tree/#{bench.deviceBuild}', 
-                id="#{bench.name}-deviceBuild", class="build")
-                =bench.deviceBuild
-            td(id="#{bench.name}-md5")
+              a(href='https://github.com/tessel/t2-firmware/tree/#{bench.build}', 
+                id="#{bench.id}-deviceBuild", class="build")
+                =bench.build
+            td(id="#{bench.id}-md5")
               =bench.md5
-            td(id="#{bench.name}-ip")
+            td(id="#{bench.id}-ip")
               =bench.ip
-            td(id="#{bench.name}-gateway")
+            td(id="#{bench.id}-gateway")
               =bench.gateway
             td
               =bench.ssh

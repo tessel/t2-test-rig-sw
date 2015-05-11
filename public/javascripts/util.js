@@ -59,9 +59,11 @@ function passFail(e){
   if (["pass", "true", "passed", "success"].indexOf(status) != -1
     || Number(status) > 0) {
     e.css("background-color", "rgb(136, 255, 136)");
+    e.html("Pass");
   } else if (['fail', "failed"].indexOf(status) != -1
     || Number(status) < 0 ){
     e.css("background-color", "rgb(252, 33, 33)");
+    e.html("Fail");
   } else if (Number(status) == 0) {
     e.html("");
   }
