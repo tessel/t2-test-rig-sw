@@ -24,10 +24,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.favicon('public/favicon.ico')); 
 
 var mongojs = require('mongojs');
-console.log("environment", process.env.NODE_ENV);
-var db = mongojs(process.env.NODE_ENV == 'production' ? process.env.MONGOLAB_URI : 'localhost');
+var db = mongojs('localhost');
 var Benches = db.collection('benches');
-// var Rigs = db.collection('rigs');
 var Devices = db.collection('devices');
 var Logs = db.collection('logs');
 
