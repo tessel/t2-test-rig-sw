@@ -5,6 +5,12 @@ var EventEmitter = require('events').EventEmitter;
 var RIG_VID = 0x59e3;
 var RIG_PID = 0xcda6;
 
+var REQ_DIGITAL = 1;
+var LED_READY = 4;
+var LED_TESTING = 5;
+var LED_PASS = 6;
+var LED_FAIL = 7;
+
 exports = module.exports = new EventEmitter();
 function Rig(dev) {
     var self = this;
@@ -56,6 +62,31 @@ Rig.prototype.detach = function() {
     this.emit('detach');
 }
 
+Rig.prototype.digital = function(pinId, state, callback) {
+    if (state == null) state = 3;
+    var self = this;
+    this.usb.controlTransfer(0xC0, REQ_DIGITAL, state, pinId, 64, function(err, data) {
+        if (callback) callback(err, data && data[0]);
+        else if (err) self.emit('error', err);
+    });
+}
+
+Rig.prototype.ready_led = function(value, callback) {
+    this.digital(LED_READY, value, callback);
+}
+
+Rig.prototype.testing_led = function(value, callback) {
+    this.digital(LED_TESTING, value, callback);
+}
+
+Rig.prototype.pass_led = function(value, callback) {
+    this.digital(LED_PASS, value, callback);
+}
+
+Rig.prototype.fail_led = function(value, callback) {
+    this.digital(LED_FAIL, value, callback);
+}
+
 exports.rigs = [];
 
 function newDevice(dev) {
@@ -95,6 +126,7 @@ if (require.main === module) {
 
         dev.on('ready', function() {
             console.log('Device with serial number', dev.serialNumber, 'is ready');
+            dev.ready_led(true);
         })
 
         dev.on('button-press', function() {
