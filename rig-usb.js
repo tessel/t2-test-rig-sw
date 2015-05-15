@@ -10,6 +10,8 @@ var LED_READY = 4;
 var LED_TESTING = 5;
 var LED_PASS = 6;
 var LED_FAIL = 7;
+var REQ_INFO = 0x30;
+var REQ_INFO_VERSION = 0x0;
 
 exports = module.exports = new EventEmitter();
 function Rig(dev) {
@@ -67,6 +69,14 @@ Rig.prototype.digital = function(pinId, state, callback) {
     var self = this;
     this.usb.controlTransfer(0xC0, REQ_DIGITAL, state, pinId, 64, function(err, data) {
         if (callback) callback(err, data && data[0]);
+        else if (err) self.emit('error', err);
+    });
+}
+
+Rig.prototype.version = function(callback) {
+    var self = this;
+    this.usb.controlTransfer(0xC0, REQ_INFO, REQ_INFO_VERSION, 0, 64, function(err, data) {
+        if (callback) callback(err, data.toString());
         else if (err) self.emit('error', err);
     });
 }
