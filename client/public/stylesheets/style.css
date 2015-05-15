@@ -1,0 +1,141 @@
+@font-face
+{
+font-family: Vannoidyk;
+src: url(../fonts/Vannoidyk.ttf);
+}
+
+@import url(http://fonts.googleapis.com/css?family=PT+Sans);
+@import url(http://fonts.googleapis.com/css?family=PT+Sans+Narrow);
+
+* {
+   text-decoration: none;
+}
+
+.container {
+  width: 100%;
+  background-color:#F7F7F7;
+}
+html, body {
+  height: 100%;
+  border: 0px;
+  padding: 0px;
+  font-family: 'PT Sans', sans-serif;
+}
+.page-weight {
+  background-color:#333333;
+  width: 100%;
+}
+
+.logo {
+  font-family:Vannoidyk;
+  height:32px;
+  padding-top: 12px;
+}
+
+.link {
+  margin-right:25px;
+  color:#d2d2d2;
+}
+.link:visited {
+  color:#d2d2d2;
+}
+
+#links {
+  font-family: 'PT Sans Narrow', sans-serif;
+  float:right;
+  height:100%;
+  font-size: 24px;
+  line-height: 30px;
+  margin-top: 13px;
+  margin-right: auto;
+  margin-left: 40px;
+}
+.nav-content {
+  width: 80%;
+  max-width: 900px;
+  height:100%;
+  margin: 0 auto;
+  color:#d2d2d2;
+  margin-top: 
+}
+
+#footer-content {
+  width:80%;
+  margin-left: auto;
+  margin-right: auto;
+  color:white;
+
+}
+
+
+#technical-logo {
+  font-family: Vannoidyk;
+  font-size:42px;
+  float:left;
+  padding-top:15px;
+  padding-bottom: 10px;
+  vertical-align: center;
+  display: table-cell;
+}
+
+#homage {
+  font-size:15px;
+  vertical-align: center;
+  padding-top: 10px;
+}
+
+.social-ic {
+  height:30px;
+  padding-top: 20px;
+  margin-left:25px;
+  float:right;
+}
+.default-button-text {
+  color:gray;
+  font-size:18px;
+  padding-left:10px;
+  opacity:.8;
+}
+.invalid-email {
+  display: none;
+  color:red;
+  font-size:20px;
+  padding-top: 10px;
+}
+.people {
+  color:white;
+}
+
+.smallIcon{
+  height:80px;
+  width:80px;
+}
+
+.moduleStatus{
+  height:120px;
+}
+
+.retry {
+  display: none;
+}
+
+.statusText {
+  color: white;
+}
+/*
+.success {
+  display: none;
+}
+
+.fail {
+  display: none;
+}
+
+.retry-all {
+  display: none;
+}
+
+.in-progress {
+  display: none;
+}
+*/
