@@ -1,6 +1,6 @@
 var request = require('request');
 var host = "http://localhost:3000";
-var tests = require('../config.json').tests;
+var tests = require('../../config.json').tests;
 
 function formatLog(date, test, level, data){
   return "["+date+"]["+test+"]["+level+"]:"+JSON.stringify(data);

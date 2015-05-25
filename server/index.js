@@ -1,5 +1,8 @@
 var express = require("express")
-  , path = require('path');
+  , path = require('path')
+  , dotenv = require('dotenv');
+
+dotenv.load();
 
 var app = express();
 var http = require('http');
@@ -8,8 +11,7 @@ var server = http.createServer(app);
 var io = require('socket.io').listen(server, {log:false});
 io.set('transports', ['xhr-polling']);
 io.set('polling duration', 10);
-var config = require('./config.json');
-config.tests = require('../config.json').tests;
+TESTS = require('../config.json').tests;
 var DEBUG = true;
 
 app.use(express.logger());
@@ -25,12 +27,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.favicon('public/favicon.ico')); 
 
 var mongojs = require('mongojs');
-var db = mongojs('localhost');
+var db = mongojs(process.env.DB || 'localhost');
 var Benches = db.collection('benches');
 var Devices = db.collection('devices');
 var Logs = db.collection('logs');
 
-var auth = express.basicAuth(config.auth_id, config.auth_pw);
+var auth = express.basicAuth(process.env.AUTH_USER || "tessel", process.env.AUTH_PW || "password");
 
 app.get('/', auth, function(req, res) {
   var benches = [];
@@ -38,7 +40,7 @@ app.get('/', auth, function(req, res) {
     if (DEBUG) console.log('names', benches);
     var count = 0;
     var tests = {};
-    config.tests.forEach(function(test){
+    TESTS.forEach(function(test){
       tests[test] = 1;
     });
     // get number made by each bench
@@ -63,8 +65,8 @@ function getDevices(query, cb){
   Devices.find(query)
     .sort({'built': -1}, function (err, docs){
       var succesNum = docs.reduce(function(pre, current){
-        for (var i = 0; i < config.tests.length; i++) {
-          if (current[config.tests[i]] != 1) return pre;
+        for (var i = 0; i < TESTS.length; i++) {
+          if (current[TESTS[i]] != 1) return pre;
         }
         return ++pre;
       }, 0);
@@ -76,7 +78,7 @@ app.get('/b/:bench', auth, function(req, res){
   var bench = req.params.bench;
   getDevices({'bench': bench}, function(devices, numSuccess){
     res.render('bench', {title: bench+' | Testalator', type: 'bench', id: bench, 
-      devices: devices, tests: config.tests, success: numSuccess})
+      devices: devices, tests: TESTS, success: numSuccess})
   });
 });
 
@@ -84,7 +86,7 @@ app.get('/r/:rig', auth, function(req, res){
   var rig = req.params.rig;
   getDevices({'rig': rig}, function(devices, numSuccess){
     res.render('bench', {title: rig+' | Testalator', type: 'rig', id: rig, 
-      devices: devices, tests: config.tests, success: numSuccess})
+      devices: devices, tests: TESTS, success: numSuccess})
   });
 });
 
@@ -213,7 +215,7 @@ app.post('/logs', function(req, res){
 app.get('/b/:bench/logs', auth, function (req, res){
   var bench = req.params.bench;
   Logs.findOne({'bench': bench}, function (err, logs) {
-    res.render('logs', {title: bench+' | logs', logs: logs, id: bench, type:"Bench", tests: config.tests});
+    res.render('logs', {title: bench+' | logs', logs: logs, id: bench, type:"Bench", tests: TESTS});
   });
 });
 
@@ -221,7 +223,7 @@ app.get('/d/:device/logs', auth, function (req, res){
   var device = req.params.device;
   Devices.find({"id": device}, function(err, docs){
     Logs.findOne({'device': device}, function (err, logs) {
-      res.render('logs', {title: device+' | logs', logs: logs, id: device, type:"Device", devices: docs, tests: config.tests});
+      res.render('logs', {title: device+' | logs', logs: logs, id: device, type:"Device", devices: docs, tests: TESTS});
     });
   });
 });
@@ -230,7 +232,7 @@ app.get('/r/:rig/logs', auth, function (req, res){
   var rig = req.params.rig;
   Devices.find({"rig": rig}, function(err, docs){
     Logs.findOne({'rig': rig}, function (err, logs) {
-      res.render('logs', {title: rig+' | logs', logs: logs, id: rig, type:"Rig", devices: docs, tests: config.tests});
+      res.render('logs', {title: rig+' | logs', logs: logs, id: rig, type:"Rig", devices: docs, tests: TESTS});
     });
   });
 });
