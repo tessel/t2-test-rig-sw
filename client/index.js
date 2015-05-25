@@ -4,6 +4,8 @@ var express = require("express")
   , configs = require('./config.json')
   ;
 
+configs.tests = require('../config.json').tests;
+
 var rigs = {}; // keep track of what is getting tested
 var app = express();
 var http = require('http');

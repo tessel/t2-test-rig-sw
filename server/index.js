@@ -9,6 +9,7 @@ var io = require('socket.io').listen(server, {log:false});
 io.set('transports', ['xhr-polling']);
 io.set('polling duration', 10);
 var config = require('./config.json');
+config.tests = require('../config.json').tests;
 var DEBUG = true;
 
 app.use(express.logger());
@@ -246,6 +247,13 @@ app.get('/logs', auth, function(req, res){
 
     res.render('logs', {title: 'query | logs', logs: doc, id: device, type:"Query"});
   });
+});
+
+app.get('/client', function(req, res){
+  // returns the md5 of the client code
+  // the client should check if this matches their current build 
+  // if not, they should download new client from /client/build
+  res.json(require('./build.json'));
 });
 
 server.listen(app.get('port'), function() {

@@ -8,7 +8,13 @@ The second incarnation of the testing server UI
 
 Run `tests/test.js` to populate data
 
+If running on OSX, make sure to have this in your bashrc:
+```
+alias md5sum="md5 -r"
+```
+
+To run:
 ```
 npm install;
-node index.js
+npm start;
 ```

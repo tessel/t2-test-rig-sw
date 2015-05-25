@@ -1,5 +1,5 @@
 {
-  "name": "testalator-host-2",
+  "name": "testalator-host",
   "version": "0.0.1",
   "dependencies": {
     "express": "3.1.x",

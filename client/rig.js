@@ -7,7 +7,7 @@ var devices = [{id:'abc'}, {id:'123'}];
 function Rig(){
   var self = this;
   // have the rig start emitting some stuff
-  var tests = require('./config.json').tests;
+  var tests = require('../config.json').tests;
   setTimeout(function(){
     var interval = setInterval(function(){
       var test = tests.shift();

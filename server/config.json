@@ -1,8 +1,4 @@
 { 
-  "tests":
-    ["Bus_Voltage", "Bootloader", "Port_Current", "SAM_Boot"
-    , "Flash", "MT_Boot", "DDR2", "Bridge", "USB_Comms", "USB_Current"
-    , "LAN", "WiFi"]
-  , "auth_id": "tessel"
+ 	"auth_id": "tessel"
   , "auth_pw": "crepes"
 }
