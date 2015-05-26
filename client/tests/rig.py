@@ -1,7 +1,9 @@
 import sys
 import usb.core
 import time
+
 from common import TestFailure, log_test_start, log_test_end
+import pyocd
 
 REQ_DIGITAL         = 1
 REQ_ANALOG          = 2
@@ -110,6 +112,30 @@ class TestRig(object):
             raise ValueError('device is not connected')
         self.calibration = DEFAULT_CALIBRATION
 
+        self._pyocd = None
+        self._uut_serial = None
+
+    def pyocd(self, reinit = False):
+        """Initialize PyOCD for the UUT SAMD21"""
+        if reinit or not self._pyocd:
+            self._pyocd = pyocd.init(self.dev)
+        return self._pyocd
+
+    def uut_serial(self, refresh = False):
+        if refresh or not self._uut_serial:
+            target = self.pyocd().target
+            id = target.readBlockMemoryUnaligned8(0x0080A00C, 17)
+            s = ""
+
+            for i in range(26):
+                idx, pos = (i*5)/8, (i*5)%8
+                val = ((id[idx] >> pos) | (id[idx+1] << (8-pos))) & ((1<<5)-1)
+                s += "0123456789ABCDFGHJKLMNPQRSTVWXYZ"[val]
+
+            self._uut_serial = s
+
+        return self._uut_serial
+
     def digital (self, pin, state):
         """Read or write a digital pin"""
         if state == None:
@@ -169,4 +195,8 @@ def by_cmdline():
 
 if __name__ == '__main__':
     rig = by_cmdline()
+
+    rig.pyocd()
+    print "Target serial:", rig.uut_serial()
+
     rig.test_pass()
