@@ -4,6 +4,7 @@ import time
 
 from common import TestFailure, log_test_start, log_test_end
 import pyocd
+from flash import Flash
 
 REQ_DIGITAL         = 1
 REQ_ANALOG          = 2
@@ -114,6 +115,7 @@ class TestRig(object):
 
         self._pyocd = None
         self._uut_serial = None
+        self._uut_usb = None
 
     def pyocd(self, reinit = False):
         """Initialize PyOCD for the UUT SAMD21"""
@@ -124,7 +126,11 @@ class TestRig(object):
     def uut_serial(self, refresh = False):
         if refresh or not self._uut_serial:
             target = self.pyocd().target
+
+            target.halt()
             id = target.readBlockMemoryUnaligned8(0x0080A00C, 17)
+            target.resume()
+
             s = ""
 
             for i in range(26):
@@ -135,6 +141,17 @@ class TestRig(object):
             self._uut_serial = s
 
         return self._uut_serial
+
+    def uut_usb(self, refresh = False):
+        """Find the target SAMD21 on the USB bus and return the pyusb device"""
+        if refresh or not self._uut_usb:
+            self._uut_usb = usb.core.find(idVendor = 0x9999, idProduct = 0xFFFF,
+                custom_match = serial_match(self.uut_serial()))
+        return self._uut_usb
+
+    def uut_flash(self):
+        """Get an object with methods to manipulate the SPI flash"""
+        return Flash(self.uut_usb())
 
     def digital (self, pin, state):
         """Read or write a digital pin"""
@@ -198,5 +215,8 @@ if __name__ == '__main__':
 
     rig.pyocd()
     print "Target serial:", rig.uut_serial()
+
+    flash = rig.uut_flash()
+    flash.check_id()
 
     rig.test_pass()
