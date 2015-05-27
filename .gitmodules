@@ -1,0 +1,3 @@
+[submodule "client/tests/pyOCD"]
+	path = client/tests/pyOCD
+	url = https://github.com/kevinmehall/pyOCD.git
