@@ -104,6 +104,14 @@ def serial_match (serial):
         return usb.util.get_string(dev, index = dev.iSerialNumber) == serial
     return inner
 
+UUT_PINS = {
+    'rst': 0x0,
+    'soc': 0x1,
+    'a': 0x10,
+    'b': 0x11,
+    'led': 0x20,
+}
+
 class TestRig(object):
     def __init__(self, serial):
         self.serial = serial
@@ -145,13 +153,23 @@ class TestRig(object):
     def uut_usb(self, refresh = False):
         """Find the target SAMD21 on the USB bus and return the pyusb device"""
         if refresh or not self._uut_usb:
-            self._uut_usb = usb.core.find(idVendor = 0x9999, idProduct = 0xFFFF,
-                custom_match = serial_match(self.uut_serial()))
+            for i in range(0, 50):
+                self._uut_usb = usb.core.find(idVendor = 0x9999, idProduct = 0xFFFF,
+                    custom_match = serial_match(self.uut_serial()))
+                if self._uut_usb:
+                    break
+                print "retry"
+                time.sleep(0.1)
+            else:
+                raise IOError("Couldn't find target device on USB")
         return self._uut_usb
 
     def uut_flash(self):
         """Get an object with methods to manipulate the SPI flash"""
         return Flash(self.uut_usb())
+
+    def uut_digital(self, pin, state):
+        self.uut_usb().ctrl_transfer(0x40, 0x10, int(state), UUT_PINS[pin], '')
 
     def digital (self, pin, state):
         """Read or write a digital pin"""
