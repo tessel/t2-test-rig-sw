@@ -122,6 +122,10 @@ class Flash(object):
 def randbyte():
     return random.randint(0, 255)
 
+def random_macs():
+    uid = [randbyte(), randbyte(), randbyte(), randbyte()]
+    return ([0x02, 0xa3] + uid, [0x02, 0xa4] + uid)
+
 if __name__ == '__main__':
     dev = usb.core.find(idVendor=0x9999, idProduct=0xffff)
     if dev is None:
@@ -132,9 +136,7 @@ if __name__ == '__main__':
     basepath = sys.argv[1]
     assert(basepath)
 
-    uid = [randbyte(), randbyte(), randbyte(), randbyte()]
-    mac1 = [0x02, 0xa3] + uid
-    mac2 = [0x02, 0xa4] + uid
+    mac1, mac2 = random_macs()
     print("Generated MAC addr ", ':'.join("{:02x}".format(x) for x in mac1))
 
     flash.write_tessel_flash(basepath, mac1, mac2)
