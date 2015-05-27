@@ -20,7 +20,7 @@ sam_flash.flashBinary(os.path.join(bin_dir, 'firmware.bin'), 0x1000)
 print "done"
 # TODO: set bootloader protection
 rig.pyocd().target.reset()
-time.sleep(5.0) # Wait for device to show up on USB
+time.sleep(1.0) # Wait for device to show up on USB
 
 # Load flash via USB
 rig.uut_digital('rst', False)
@@ -30,11 +30,12 @@ mac1, mac2 = flash.random_macs() #TODO: get_mac_from_server(rig.uut_serial())
 print "MAC addr ", ':'.join("{:02x}".format(x) for x in mac1)
 spi_flash = rig.uut_flash()
 spi_flash.write_tessel_flash(bin_dir, mac1, mac2)
+spi_flash.release()
 
 rig.uut_digital('soc', False)
-time.sleep(0.5)
+time.sleep(0.1)
 rig.uut_digital('soc', True)
-time.sleep(0.5)
+time.sleep(0.1)
 rig.uut_digital('rst', True)
 print "MTK is hopefully booting"
 

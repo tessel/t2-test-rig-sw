@@ -3,7 +3,7 @@ Utilities to manipulate the Spansion SPI flash on Tessel 2 via USB on the coproc
 """
 
 from __future__ import print_function
-import usb.core
+import usb.core, usb.util
 import random
 import sys
 import os
@@ -32,6 +32,10 @@ class Flash(object):
         self.interface.set_altsetting()
         self.ep_in = self.interface[0]
         self.ep_out = self.interface[1]
+
+    def release(self):
+        usb.util.release_interface(self.interface.device, 0)
+        self.interface = None
 
     def transaction(self, write, read=0, status_poll=False, wren=False):
         if len(write) > 500 or read >= 2**24:
