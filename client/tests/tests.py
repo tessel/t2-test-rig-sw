@@ -1,6 +1,10 @@
 import os, time
 import rig as riglib
 import flash
+
+# pull in the tests
+import bus_voltage_test
+
 rig = riglib.by_cmdline()
 bin_dir = os.path.join(os.path.dirname(__file__), '../bin')
 
@@ -9,6 +13,7 @@ time.sleep(1)
 # Power on via 5V in pin
 
 # Verify bus voltages
+bus_voltage_test.no_fw_no_os(rig)
 
 # Program SAM via SWD
 print "Target serial:", rig.uut_serial()
@@ -38,6 +43,11 @@ rig.uut_digital('soc', True)
 time.sleep(0.1)
 rig.uut_digital('rst', True)
 print "MTK is hopefully booting"
+
+# give the USB controller time to turn on
+time.sleep(15)
+bus_voltage_test.yes_fw_yes_os(rig)
+
 
 # SAM tests
 
