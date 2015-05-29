@@ -1,7 +1,7 @@
 import os, time
 import rig
 import flash
-rig = rig.by_cmdline()
+test_rig = test_rig.by_cmdline()
 bin_dir = os.path.join(os.path.dirname(__file__), '../bin')
 
 time.sleep(1)
@@ -11,32 +11,32 @@ time.sleep(1)
 # Verify bus voltages
 
 # Program SAM via SWD
-print "Target serial:", rig.uut_serial()
-sam_flash = rig.pyocd().flash
+print "Target serial:", test_rig.uut_serial()
+sam_flash = test_rig.pyocd().flash
 sam_flash.init()
 print "Writing SAM flash...",
 sam_flash.flashBinary(os.path.join(bin_dir, 'boot.bin'),     0)
 sam_flash.flashBinary(os.path.join(bin_dir, 'firmware.bin'), 0x1000)
 print "done"
 # TODO: set bootloader protection
-rig.pyocd().target.reset()
+test_rig.pyocd().target.reset()
 time.sleep(1.0) # Wait for device to show up on USB
 
 # Load flash via USB
-rig.uut_digital('rst', False)
-rig.uut_digital('soc', True)
+test_rig.uut_digital('rst', False)
+test_rig.uut_digital('soc', True)
 
-mac1, mac2 = flash.random_macs() #TODO: get_mac_from_server(rig.uut_serial())
+mac1, mac2 = flash.random_macs() #TODO: get_mac_from_server(test_rig.uut_serial())
 print "MAC addr ", ':'.join("{:02x}".format(x) for x in mac1)
-spi_flash = rig.uut_flash()
+spi_flash = test_rig.uut_flash()
 spi_flash.write_tessel_flash(bin_dir, mac1, mac2)
 spi_flash.release()
 
-rig.uut_digital('soc', False)
+test_rig.uut_digital('soc', False)
 time.sleep(0.1)
-rig.uut_digital('soc', True)
+test_rig.uut_digital('soc', True)
 time.sleep(0.1)
-rig.uut_digital('rst', True)
+test_rig.uut_digital('rst', True)
 print "MTK is hopefully booting"
 
 # SAM tests
