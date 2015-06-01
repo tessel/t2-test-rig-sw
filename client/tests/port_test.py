@@ -25,7 +25,6 @@ def helper(rig, port):
 
     print 'Testing ' + port['name']
     dio_test(rig, port)
-    i2c_pull_test(rig, port)
     power_test(rig, port)
     print 'Done testing ' + port['name']
 
@@ -47,21 +46,13 @@ def dio_test(rig, port):
         print p + '\t' + str(l) + ' ' + str(h)
         low.append(l)
         high.append(h)
-    print 'Done with digital side'
+    print 'Done with dio test on ' + port['name']
 
     # evaluate the results
     if 0 in high or 1 in low:
-        print 'FAILED DIGITAL PIN TEST'
         pass
-        # raise ValueError('invalid pin voltage on ' + port['name'])
-
-
-def i2c_pull_test(rig, port):
-    rig.uut_digital(port['name'][4].lower(), 0)
-    sda = 
-    rig.uut_digital(port['name'][4].lower(), 1)
-
-
+        # raise ValueError('FAILED DIGITAL PIN TEST ON ' + port['name'])
+        
 
 def power_test(rig, port):
     # power busses and current limiting
@@ -92,18 +83,23 @@ def power_test(rig, port):
     i_port_short = riglib.counts_to_amps(rig.analog(pin_i) - offset)
     i_uut_short =  riglib.counts_to_amps(rig.analog('CURRENT_UUT') - offset)
 
-    time.sleep(0.01)
-
     # open circuit, disable power
     rig.digital('SHORT_' + port['name'] + '33', 0)
     rig.uut_digital(port['name'][4].lower(), 0)
 
-    # output = str(round(v_off, 4)) + '\t' + str(round(v_on, 4)) + '\n' + str(round(i_port_open, 4)) + '\t' + str(round(i_port_short, 4))
-    # print output
     print 'V_off\t\t'      + str(round(v_off, 4))
     print 'V_on\t\t'       + str(round(v_on, 4))
     print 'V_short\t\t'    + str(round(v_short, 4))
     print 'I_port_open\t'  + str(round(i_port_open, 4))
     print 'I_port_short\t' + str(round(i_port_short, 4))    
     print 'I_uut_open\t'   + str(round(i_uut_open, 4))
-    print 'I_uut_short\t'  + str(round(i_uut_short, 4))  
+    print 'I_uut_short\t'  + str(round(i_uut_short, 4))
+
+    if False in (   v_off        < 0.2  , 
+                    v_on         > 3.0  ,
+                    i_port_open  < 0.02 ,
+                    i_port_short < 0.3  ,
+                ):
+        pass
+        # raise ValueError('FAILED PORT CURRENT LIMIT TEST ON ' + port['name'])
+
