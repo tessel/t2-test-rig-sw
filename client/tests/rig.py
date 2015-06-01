@@ -90,7 +90,27 @@ DEFAULT_CALIBRATION = {
     "VOLTAGE_PORTA33": {"0": 41.344, "2.5": 2047.37, "div" : 2.0},
     "VOLTAGE_5VUUT": {"0": 40.907, "2.5": 2046.387, "div" : 2.0},
     "VOLTAGE_33MT": {"0": 40.761, "2.5": 2046.685, "div" : 2.0},
-    "CURRENT_PORTB33": {"0": 15.507, "2.5": 23.523, "div" : 2.0}
+    "CURRENT_PORTB33": {"0": 15.507, "2.5": 23.523, "div" : 1.0}
+}
+
+i_offset = 30
+v_offset = 40
+CAL = {
+    "VOLTAGE_VREF":     { "0" : v_offset,   "div" : 1.0 },
+    "VOLTAGE_12":       { "0" : v_offset,   "div" : 1.0 },
+    "VOLTAGE_5VUSB0":   { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_5VUSB1":   { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_33CP":     { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_18":       { "0" : v_offset,   "div" : 1.0 },
+    "CURRENT_PORTA33":  { "0" : i_offset,   "div" : 1.0 },
+    "VOLTAGE_PORTB33":  { "0" : v_offset,   "div" : 2.0 },
+    "CURRENT_USB0":     { "0" : i_offset,   "div" : 1.0 },
+    "CURRENT_USB1":     { "0" : i_offset,   "div" : 1.0 },
+    "CURRENT_UUT":      { "0" : i_offset,   "div" : 1.0 },
+    "VOLTAGE_PORTA33":  { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_5VUUT":    { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_33MT":     { "0" : v_offset,   "div" : 2.0 },
+    "CURRENT_PORTB33":  { "0" : i_offset,   "div" : 1.0 }
 }
 
 def counts_to_volts (counts):
