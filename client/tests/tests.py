@@ -4,16 +4,21 @@ import flash
 
 # pull in the tests
 import bus_voltage_test
+import port_test
 
 rig = riglib.by_cmdline()
 bin_dir = os.path.join(os.path.dirname(__file__), '../bin')
 
+rig.digital('UUTPOWER_USB', 0)
+rig.digital('UUTPOWER_VIN', 0)
 time.sleep(1)
 
 # Power on via 5V in pin
-
-# Verify bus voltages
-bus_voltage_test.no_fw_no_os(rig)
+rig.digital('UUTPOWER_USB', 1)
+time.sleep(1)
+# for i in xrange(8):
+#     rig.uut_digital('a' + str(i), 2)
+#     rig.uut_digital('b' + str(i), 2)
 
 # Program SAM via SWD
 print "Target serial:", rig.uut_serial()
@@ -44,7 +49,7 @@ time.sleep(0.1)
 rig.uut_digital('rst', True)
 print "MTK is hopefully booting"
 
-# give the USB controller time to turn on
+# give the USB controller time to turn on, then check the node voltages again
 time.sleep(15)
 bus_voltage_test.yes_fw_yes_os(rig)
 
@@ -52,6 +57,7 @@ bus_voltage_test.yes_fw_yes_os(rig)
 # SAM tests
 
 # Port A test
+port_test.test_ports(rig)
 
 # Port B test
 
@@ -70,3 +76,6 @@ bus_voltage_test.yes_fw_yes_os(rig)
 # Ethernet
 
 # LEDs
+
+rig.digital('UUTPOWER_USB', 0)
+rig.digital('UUTPOWER_VIN', 0)
