@@ -32,16 +32,32 @@ def helper(rig, port):
 def dio_test(rig, port):
     low = []
     high = []
-    for p in port['pins']:
-        #### write the pin low on the UUT
-        # rig.however_you_do_that()
-        time.sleep(0.001)
-        l = (rig.digital(p, 2)[0])
+    pins = [
+        '_SCL'  ,
+        '_SDA'  ,
+        '_SCK'  ,
+        '_MISO' ,
+        '_MOSI' ,
+        '_G1'   ,
+        '_G2'   ,
+        '_G3'   ,
+    ]
+    order = zip(range(8), pins)
+    for (uut_pin, p) in order:
+        uut_pin = port['name'][4].lower() + str(uut_pin)
+        p = port['name'] + p
 
-        #### write the pin high on the UUT
-        # rig.however_you_do_that()
-        time.sleep(0.001)
-        h = (rig.digital(p, 2)[0])
+        # measure low
+        rig.uut_digital(uut_pin, 0)
+        l = rig.digital(p, 2)[0]
+        
+        # measure high
+        rig.uut_digital(uut_pin, 1)
+        h = rig.digital(p, 2)[0]
+        
+        # set low, input
+        rig.uut_digital(uut_pin, 0)
+        rig.uut_digital(uut_pin, 2)
 
         print p + '\t' + str(l) + ' ' + str(h)
         low.append(l)
@@ -51,7 +67,7 @@ def dio_test(rig, port):
     # evaluate the results
     if 0 in high or 1 in low:
         pass
-        # raise ValueError('FAILED DIGITAL PIN TEST ON ' + port['name'])
+        raise ValueError('FAILED DIGITAL PIN TEST ON ' + port['name'])
         
 
 def power_test(rig, port):
@@ -101,5 +117,4 @@ def power_test(rig, port):
                     i_port_short < 0.3  ,
                 ):
         pass
-        # raise ValueError('FAILED PORT CURRENT LIMIT TEST ON ' + port['name'])
-
+        raise ValueError('FAILED PORT CURRENT LIMIT TEST ON ' + port['name'])
