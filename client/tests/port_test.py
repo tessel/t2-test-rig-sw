@@ -4,7 +4,7 @@ import time
 port_a = {
     'name'  : 'PORTA',
     'pins'  : riglib.digital_pins[10:18],
-    'short' : 'SHORT_PORTB33',
+    'short' : 'SHORT_PORTA33',
     }
 port_b = {
     'name'  : 'PORTB',
