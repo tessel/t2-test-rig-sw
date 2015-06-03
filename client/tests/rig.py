@@ -20,7 +20,7 @@ CSA_GAIN            = 45
 R_CSA               = 0.02
 
 digital_pins = [
-    'SHORT_USBO',
+    'SHORT_USB0',
     'SHORT_USB1',
     'SHORT_PORTA33',
     'SHORT_PORTB33',
