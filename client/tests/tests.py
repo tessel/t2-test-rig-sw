@@ -5,6 +5,7 @@ import flash
 # pull in the tests
 import bus_voltage_test
 import port_test
+import usb_protection
 
 rig = riglib.by_cmdline()
 bin_dir = os.path.join(os.path.dirname(__file__), '../bin')
@@ -72,6 +73,7 @@ port_test.test_ports(rig)
 # Verify comms using bridge
 
 # Test USB hub
+usb_protection.test_usb_overcurrent_protection(rig)
 
 # WiFi
 
@@ -79,5 +81,6 @@ port_test.test_ports(rig)
 
 # LEDs
 
+time.sleep(5)
 rig.digital('UUTPOWER_USB', 0)
 rig.digital('UUTPOWER_VIN', 0)
