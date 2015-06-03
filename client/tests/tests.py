@@ -16,9 +16,9 @@ time.sleep(1)
 # Power on via 5V in pin
 rig.digital('UUTPOWER_USB', 1)
 time.sleep(1)
-# for i in xrange(8):
-#     rig.uut_digital('a' + str(i), 2)
-#     rig.uut_digital('b' + str(i), 2)
+for i in xrange(8):
+    rig.uut_digital('a' + str(i), 2)
+    rig.uut_digital('b' + str(i), 2)
 
 # Program SAM via SWD
 print "Target serial:", rig.uut_serial()
