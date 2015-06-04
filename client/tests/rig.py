@@ -20,7 +20,7 @@ CSA_GAIN            = 45
 R_CSA               = 0.02
 
 digital_pins = [
-    'SHORT_USBO',
+    'SHORT_USB0',
     'SHORT_USB1',
     'SHORT_PORTA33',
     'SHORT_PORTB33',
@@ -90,7 +90,27 @@ DEFAULT_CALIBRATION = {
     "VOLTAGE_PORTA33": {"0": 41.344, "2.5": 2047.37, "div" : 2.0},
     "VOLTAGE_5VUUT": {"0": 40.907, "2.5": 2046.387, "div" : 2.0},
     "VOLTAGE_33MT": {"0": 40.761, "2.5": 2046.685, "div" : 2.0},
-    "CURRENT_PORTB33": {"0": 15.507, "2.5": 23.523, "div" : 2.0}
+    "CURRENT_PORTB33": {"0": 15.507, "2.5": 23.523, "div" : 1.0}
+}
+
+i_offset = 30
+v_offset = 40
+CAL = {
+    "VOLTAGE_VREF":     { "0" : v_offset,   "div" : 1.0 },
+    "VOLTAGE_12":       { "0" : v_offset,   "div" : 1.0 },
+    "VOLTAGE_5VUSB0":   { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_5VUSB1":   { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_33CP":     { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_18":       { "0" : v_offset,   "div" : 1.0 },
+    "CURRENT_PORTA33":  { "0" : i_offset,   "div" : 1.0 },
+    "VOLTAGE_PORTB33":  { "0" : v_offset,   "div" : 2.0 },
+    "CURRENT_USB0":     { "0" : i_offset,   "div" : 1.0 },
+    "CURRENT_USB1":     { "0" : i_offset,   "div" : 1.0 },
+    "CURRENT_UUT":      { "0" : i_offset,   "div" : 1.0 },
+    "VOLTAGE_PORTA33":  { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_5VUUT":    { "0" : v_offset,   "div" : 2.0 },
+    "VOLTAGE_33MT":     { "0" : v_offset,   "div" : 2.0 },
+    "CURRENT_PORTB33":  { "0" : i_offset,   "div" : 1.0 }
 }
 
 def counts_to_volts (counts):
@@ -110,6 +130,22 @@ UUT_PINS = {
     'a': 0x10,
     'b': 0x11,
     'led': 0x20,
+    'a0': 0x40,
+    'a1': 0x41,
+    'a2': 0x42,
+    'a3': 0x43,
+    'a4': 0x44,
+    'a5': 0x45,
+    'a6': 0x46,
+    'a7': 0x47,
+    'b0': 0x50,
+    'b1': 0x51,
+    'b2': 0x52,
+    'b3': 0x53,
+    'b4': 0x54,
+    'b5': 0x55,
+    'b6': 0x56,
+    'b7': 0x57
 }
 
 class TestRig(object):
