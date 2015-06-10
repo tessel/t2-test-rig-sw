@@ -54,7 +54,15 @@ function Rig(dev) {
             }, 500);
         })
 
-        self.emit('ready');
+        // get version
+        self.version(function(err, build){
+            if (err) {
+                self.emit('error', err);
+            }
+
+            self.build = build;
+            self.emit('ready');
+        });
     })
 }
 util.inherits(Rig, EventEmitter);

@@ -56,7 +56,7 @@ class Flash(object):
 
     def check_id(self):
         chip_id = self.rdid()
-        print("Chip id", str(chip_id).encode('hex'))
+        print("Chip id" + str(chip_id).encode('hex'))
 
         if chip_id != bytearray([0x01, 0x02, 0x19]):
             raise AssertionError("Invalid chip ID (flash communication error)")
