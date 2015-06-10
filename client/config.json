@@ -1,3 +1,4 @@
 {
-  "name": "host 1"
+  "name": "host 1",
+  "server": "http://localhost:3000"
 }

@@ -3,11 +3,11 @@ extends layout
 block head
   script
     $(function(){
-      var statusColors = {'In Progress': '#f08a24', 'Pass': '#43AC6A', 'Fail': '#f04124'};
-      
+      var STATUS_COLORS = {'In Progress': '#f08a24', 'Pass': '#43AC6A', 'Fail': '#f04124'};
+      var TESTS = !{JSON.stringify(tests)};
       function switchStatus(text, ele) {
         $(ele.children('.statusText')[0]).html(text);
-        ele.css('background-color', statusColors[text] ? statusColors[text] : '');
+        ele.css('background-color', STATUS_COLORS[text] ? STATUS_COLORS[text] : '');
         
         // if status is a fail, then also display retry button
         if (text == 'Fail') {
@@ -35,6 +35,24 @@ block head
         }
         $('.'+data.rig+"-deviceId").html(data.device);
       });
+      socket.on('addRig', function(rig){
+        var rigEle = $('<tr>')
+          .append($('<td>').append($('<div>').addClass("button").attr("rig", rig.serialNumber).attr("test", "all").attr("id", rig.serialNumber+"-test-all").text('Test')))
+          .append($('<td>').text(rig.serialNumber))
+          .attr("id", rig.serialNumber)
+          .append($('<td>').text(rig.build));
+        TESTS.forEach(function(test){
+          rigEle.append($('<td>').addClass("testingStatus "+rig.serialNumber+"-status").attr("id", rig.serialNumber+"-"+test+"-status")
+            .append($("<div>").addClass("statusText"))
+            .append($("<div>").addClass("button test retry").attr("rig", rig.serialNumber).attr("test", test).text("Test"))
+          );
+        });
+        $('#tableBody').append(rigEle);
+      });
+      socket.on('removeRig', function(rig){
+        // find the rig
+        $('#'+rig.serialNumber).remove();
+      });
       socket.on('done', function(data){
         // tests are finished
         // show test button
@@ -53,19 +71,24 @@ block content
   table
     thead
       tr
+        th
         th Rig
+        th Build
         th Device
         each test in tests
           th #{test}
-    tbody
+    tbody#tableBody
         each rig in rigs
-          tr
+          tr(id="#{rig.serialNumber")
+            td
+              .button.test(rig="#{rig.serialNumber}", test="all", id="#{rig.serialNumber}-test-all") Test
             td 
-              | #{rig.id} 
-              .div
-                .button.test(rig="#{rig.id}", test="all", id="#{rig.id}-test-all") Test
-            td.deviceId(class="#{rig.id}-deviceId")
+              | #{rig.serialNumber} 
+            td
+              | #{rig.build}
+            td
+              | #{rig.device}
             each test in tests
-              td.testingStatus(class="#{rig.id}-status", id="#{rig.id}-#{test}-status")
+              td.testingStatus(class="#{rig.serialNumber}-status", id="#{rig.serialNumber}-#{test}-status")
                 .div.statusText
-                .button.test.retry(rig="#{rig.id}", test="#{test}") Test
+                .button.test.retry(rig="#{rig.serialNumber}", test="#{test}") Test
