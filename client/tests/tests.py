@@ -16,7 +16,7 @@ time.sleep(1)
 
 # Power on via 5V in pin
 rig.digital('UUTPOWER_USB', 1)
-time.sleep(1)
+time.sleep(2)
 
 # Program SAM via SWD
 print "Target serial:", rig.uut_serial()
@@ -28,7 +28,7 @@ sam_flash.flashBinary(os.path.join(bin_dir, 'firmware.bin'), 0x1000)
 print "done"
 # TODO: set bootloader protection
 rig.pyocd().target.reset()
-time.sleep(1.0) # Wait for device to show up on USB
+time.sleep(2.0) # Wait for device to show up on USB
 
 # Port IO to inputs
 for i in xrange(8):
@@ -53,7 +53,7 @@ rig.uut_digital('rst', True)
 print "MTK is hopefully booting"
 
 # give the USB controller time to turn on, then check the node voltages again
-time.sleep(15)
+time.sleep(20)
 bus_voltage_test.yes_fw_yes_os(rig)
 
 
