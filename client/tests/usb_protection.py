@@ -34,7 +34,7 @@ def helper(rig, port):
 
     # open circuit, measure recovered voltage
     rig.digital(pin_s, 0)
-    time.sleep(0.5)
+    time.sleep(1)
     v_recover = riglib.counts_to_volts(rig.analog(pin_v) * div)
 
     print 'V_on\t\t'       + str(round(v_on, 4))
