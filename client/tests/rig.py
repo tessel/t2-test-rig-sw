@@ -161,37 +161,34 @@ class TestRig(object):
         self._uut_serial = None
         self._uut_usb = None
 
-    def pyocd(self, reinit = False):
+    def enable_pyocd(self):
         """Initialize PyOCD for the UUT SAMD21"""
-        if reinit or not self._pyocd:
-            self._pyocd = pyocd.init(self.dev)
-        return self._pyocd
+        self.pyocd = pyocd.init(self.dev)
+        self.pyocd.target.halt()
+        self.read_uut_serial()
 
-    def uut_serial(self, refresh = False):
-        if refresh or not self._uut_serial:
-            target = self.pyocd().target
+    def disable_pyocd(self):
+        self.pyocd.transport.uninit()
+        pyocd.uninit(self.dev)
+        self.pyocd = None
 
-            target.halt()
-            id = target.readBlockMemoryUnaligned8(0x0080A00C, 17)
-            target.resume()
+    def read_uut_serial(self):
+        id = self.pyocd.target.readBlockMemoryUnaligned8(0x0080A00C, 17)
+        s = ""
 
-            s = ""
+        for i in range(26):
+            idx, pos = (i*5)/8, (i*5)%8
+            val = ((id[idx] >> pos) | (id[idx+1] << (8-pos))) & ((1<<5)-1)
+            s += "0123456789ABCDFGHJKLMNPQRSTVWXYZ"[val]
 
-            for i in range(26):
-                idx, pos = (i*5)/8, (i*5)%8
-                val = ((id[idx] >> pos) | (id[idx+1] << (8-pos))) & ((1<<5)-1)
-                s += "0123456789ABCDFGHJKLMNPQRSTVWXYZ"[val]
-
-            self._uut_serial = s
-
-        return self._uut_serial
+        self.uut_serial = s
 
     def uut_usb(self, refresh = False):
         """Find the target SAMD21 on the USB bus and return the pyusb device"""
         if refresh or not self._uut_usb:
             for i in range(0, 50):
                 self._uut_usb = usb.core.find(idVendor = 0x9999, idProduct = 0xFFFF,
-                    custom_match = serial_match(self.uut_serial()))
+                    custom_match = serial_match(self.uut_serial))
                 if self._uut_usb:
                     break
                 print "retry"
@@ -267,8 +264,8 @@ def by_cmdline():
 if __name__ == '__main__':
     rig = by_cmdline()
 
-    rig.pyocd()
-    print "Target serial:", rig.uut_serial()
+    rig.enable_pyocd()
+    print "Target serial:", rig.uut_serial
 
     flash = rig.uut_flash()
     flash.check_id()

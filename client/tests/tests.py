@@ -19,15 +19,17 @@ rig.digital('UUTPOWER_USB', 1)
 time.sleep(2)
 
 # Program SAM via SWD
-print "Target serial:", rig.uut_serial()
-sam_flash = rig.pyocd().flash
+rig.enable_pyocd()
+print "Target serial:", rig.uut_serial
+sam_flash = rig.pyocd.flash
 sam_flash.init()
 print "Writing SAM flash...",
 sam_flash.flashBinary(os.path.join(bin_dir, 'boot.bin'),     0)
 sam_flash.flashBinary(os.path.join(bin_dir, 'firmware.bin'), 0x1000)
 print "done"
 # TODO: set bootloader protection
-rig.pyocd().target.reset()
+rig.pyocd.target.reset()
+rig.disable_pyocd()
 time.sleep(2.0) # Wait for device to show up on USB
 
 # Port IO to inputs
@@ -39,7 +41,7 @@ for i in xrange(8):
 rig.uut_digital('rst', False)
 rig.uut_digital('soc', True)
 
-mac1, mac2 = flash.random_macs() #TODO: get_mac_from_server(rig.uut_serial())
+mac1, mac2 = flash.random_macs() #TODO: get_mac_from_server(rig.uut_serial
 print "MAC addr ", ':'.join("{:02x}".format(x) for x in mac1)
 spi_flash = rig.uut_flash()
 spi_flash.write_tessel_flash(bin_dir, mac1, mac2)

@@ -41,3 +41,6 @@ def init(dev):
     board = Board('samd', 'samd', interface)
     board.init()
     return board
+
+def uninit(dev):
+    dev.get_active_configuration()[(0,0)].set_altsetting()
