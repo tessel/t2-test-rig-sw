@@ -35,7 +35,9 @@ def pyocd_interface(interface):
     return new_board
 
 def init(dev):
-    interface = pyocd_interface(dev.get_active_configuration()[(0,0)])
+    i = dev.get_active_configuration()[(0,1)]
+    i.set_altsetting()
+    interface = pyocd_interface(i)
     board = Board('samd', 'samd', interface)
     board.init()
     return board
