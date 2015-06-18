@@ -1,4 +1,3 @@
 {
-  "hostPath": "./hostConfig.json", 
-  "server": "http://localhost:8080/"
+  "hostPath": "./hostConfigs/usbConfig.json"
 }

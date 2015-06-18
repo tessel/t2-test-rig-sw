@@ -263,7 +263,7 @@ app.get('/logs', auth, function(req, res){
 
 BUILDS.forEach(function(build){
   app.get('/builds/'+build, function(req, res){
-    res.sendfile(build+".bin", {root: './public'});
+    res.sendfile('/builds/'+build+".bin", {root: './public'});
   });
 
   app.get('/builds/'+build+"/info", function(req, res){
@@ -277,7 +277,12 @@ app.get('/builds', function(req, res){
 });
 
 app.get('/client', function(req, res){
-  res.send(require('./config.json').version);
+  res.sendfile("/builds/client.tar.gz", {root: './public'});
+});
+
+app.get('/client/info', function(req, res){
+  console.log("client", require('./config.json').client);
+  res.send(require('./config.json').client);
 });
 
 server.listen(app.get('port'), function() {
