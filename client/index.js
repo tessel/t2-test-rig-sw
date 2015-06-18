@@ -11,14 +11,14 @@ var express = require("express")
   ;
 
 var DEBUG = true;
-var BUILD_PATH = configs.server+"builds/";
+configs.host = require(path.join(__dirname, configs.hostPath));
+var BUILD_PATH = configs.host.server+"builds/";
 var BUILDS = require(path.join(__dirname, '../config.json')).builds;
 var LOG_STATUS = {"inProgress": 0, "pass": 1, "fail": -1};
 var LOG_NUMBERS = [];
 Object.keys(LOG_STATUS).forEach(function(status){
   LOG_NUMBERS.push(LOG_STATUS[status]);
 });
-configs.host = require(path.join(__dirname, configs.hostPath));
 
 
 var lockedTesting = false;
