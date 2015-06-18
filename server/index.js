@@ -1,6 +1,8 @@
 var express = require("express")
   , path = require('path')
-  , dotenv = require('dotenv');
+  , dotenv = require('dotenv')
+  , fs = require('fs')
+  ;
 
 dotenv.load();
 
@@ -34,6 +36,13 @@ var Devices = db.collection('devices');
 var Logs = db.collection('logs');
 
 var auth = express.basicAuth(process.env.AUTH_USER || "tessel", process.env.AUTH_PW || "password");
+
+// make sure we have builds, otherwise error out
+BUILDS.forEach(function(build){
+  fs.exists(path.join(__dirname, '/public/builds/'+build+'.bin'), function(exists){
+    if (!exists) throw new Error("Missing binary /public/builds/"+build+".bin");
+  })
+});
 
 app.get('/', auth, function(req, res) {
   var benches = [];

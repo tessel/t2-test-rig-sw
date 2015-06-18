@@ -10,16 +10,6 @@ var express = require("express")
   , path = require('path')
   ;
 
-configs.tests = require(path.join(__dirname, '../config.json')).tests;
-try {
-  configs.builds = require(path.join(__dirname, './build.json'));
-} catch (e) {
-  // we don't have a builds.json, we need to grab it
-  getBuilds(function(err){
-    if (err) throw err;
-  });
-}
-
 var DEBUG = true;
 var BUILD_PATH = configs.server+"builds/";
 var BUILDS = require(path.join(__dirname, '../config.json')).builds;
@@ -108,7 +98,7 @@ function deviceFinished(serialNumber, passed) {
 
 function emitMessage(message, lock) {
   lockedTesting = lock;
-
+  console.log("Emitting:", message);
   io.sockets.emit("message", {message: message, lock: lockedTesting});
 }
 
@@ -232,7 +222,6 @@ rig_usb.on('attach', function(dev){
   })
 
   dev.on('error', function(e) {
-      console.log("Error on ", dev.serialNumber);
       emitMessage("Error on "+dev.serialNumber+": "+e+e.stack, false);
   });
 });
@@ -256,37 +245,44 @@ function getBuilds(cb){
 
   async.forEachOf(BUILDS, function(build, i, callback){
     var url = BUILD_PATH+build;
-    request(url, function(err, res, buildBin) {
-      if (err) return callback(new Error("Could not get build url at "+url+". Got "+err));
+    var binPath = path.join(__dirname, '/bin/'+build+".bin");
 
-      var md5 = crypto.createHash(algorithm || 'md5')
-        .update(buildBin, 'utf8')
-        .digest(encoding || 'hex')
+    var binFile = fs.createWriteStream(binPath);
+    request.get(url+'.bin')
+    .on('error', function(err){
+      callback(err);
+    })
+    .on('response', function(res){
+      res.pipe(binFile)
+    });
+
+    binFile.on('finish', function(){
+      var buf = fs.readFileSync(binPath);
+      var md5 = crypto.createHash('md5')
+        .update(buf, 'utf8')
+        .digest('hex')
 
       // check md5 sum
       request(url+"/info", function(err, res, body){
         body = JSON.parse(body);
-        if (md5 != body.md5sum) return callback(new Error("Md5sum of "+url+" did not match. Got: "+md5+", expected: "+body));
+        if (md5 != body.md5sum) return callback(new Error("Md5sum of "+url+" did not match. Got: "+md5+", expected: "+body.md5sum));
 
         buildsJSON[build] = {md5sum: body.md5sum, time: new Date().getTime(), build: body.build};
 
-        fs.writeFile(path.join(__dirname, '/bin/'+build+".bin"), buildBin, function(err){
-          if (err) return callback(new Error("could not write binary for "+build+", got "+err));
-
-          return callback();
-        });
+        callback();
       });
     });
+      
   }, function(err){
-    if (err) cb(err);
+    if (err) return cb && cb(err);
     // write the builds.json file
-      fs.writeFile(path.join(__dirname, '/bin/'+build+".bin"), JSON.stringify(buildsJSON), function(err){
-        // reload configs
-        configs.builds = require('./build.json');  
-        emitMessage("Update finished.", false);
+    fs.writeFile(path.join(__dirname, './build.json'), JSON.stringify(buildsJSON, null, 2), function(err){
+      // reload configs
+      configs.builds = require('./build.json');  
+      emitMessage("Update finished.", false);
 
-        cb(err);
-      });
+      cb && cb(err);
+    });
   });
 }
 
@@ -335,13 +331,29 @@ setInterval(function(){
 }, 1000*5*60);
 // }, 1000*5*60); // every 5 min check
 
-// tell test rigs to retry
-io.sockets.on('connection', function (client) {
-  client.on('retry', function(data) {
-    // { rig: '082BK9ZSFN5ZMR39MK63B4RA8T', test: 'all' }
-    console.log("retry", data);
-  })
-});
+configs.tests = require(path.join(__dirname, '../config.json')).tests;
+try {
+  configs.builds = require(path.join(__dirname, './build.json'));
+
+  // make sure we have all the build.json files in the /bin dir
+  async.forEachOf(BUILDS, function(build, i, callback){
+    fs.exists(path.join(__dirname, '/bin/'+build+'.bin'), function(exists){
+      if (!exists) return callback("missing "+build);
+      callback();
+    })
+  }, function(err){
+    if (err) {
+      console.log(err, "updating builds");
+      getBuilds();
+    }
+  });
+} catch (e) {
+  console.log("No builds.json found, updating builds");
+  // we don't have a builds.json, we need to grab it
+  getBuilds(function(err){
+    if (err) throw err;
+  });
+}
 
 server.listen(app.get('port'), function() {
 

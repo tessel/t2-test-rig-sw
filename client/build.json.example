@@ -1,0 +1,18 @@
+{
+  "boot": { "md5sum": "8e01f63cb7aa4b95775dcca53a2d07df", 
+    "time": 1432074204, 
+    "build": "42e9e836b05405ce71e1ee07d78c9bbe89b9b786"
+  }, "firmware": {
+    "md5sum": "firmware_md5", 
+    "time": 1432078204, 
+    "build": "firmware_build"
+  }, "openwrt-ramips-mt7620-Default-u-boot": {
+    "md5sum": "wrtboot_md5", 
+    "time": 1432079204, 
+    "build": "wrt_build"
+  }, "openwrt-ramips-mt7620-tessel-squashfs-sysupgrade": {
+    "md5sum": "wrtsys_md5", 
+    "time": 1432080204, 
+    "build": "wrtsys_build"
+  }
+}

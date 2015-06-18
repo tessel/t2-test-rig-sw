@@ -7,6 +7,7 @@ LOG_STATUS = {"inProgress": 0, "pass": 1, "fail": -1}
 class PrintHook:
   def __init__(self, hookFunc, stdOut = 1):
     self.outFunc = hookFunc
+    self.stdOut = stdOut
     if stdOut:
       sys.stdout = self #override stdout with write() func
       self.origOut = sys.__stdout__
@@ -21,8 +22,7 @@ class PrintHook:
       self.outFunc(self.origOut, text, isJson)
 
   def stop(self):
-    self.flush() # flush all before resetting sysoutputs
-    if stdOut:
+    if self.stdOut:
       sys.stdout = sys.__stdout__
     else: 
       sys.stderr = sys.__stderr__
