@@ -1,0 +1,6 @@
+{
+  "name": "host1",
+  "vpn": "????",
+  "server": "http://localhost:8080/",
+  "build": "0"
+}

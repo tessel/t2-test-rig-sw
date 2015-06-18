@@ -2,14 +2,19 @@
   "name": "testalator-host",
   "version": "0.0.1",
   "dependencies": {
+    "async": "^1.2.1",
     "express": "3.1.x",
     "jade": "~0.31.2",
     "mongojs": "~0.18.2",
+    "request": "^2.57.0",
     "socket.io": "~0.9.14",
     "usb": "^1.0.6"
   },
   "engines": {
     "node": "0.10.x",
     "npm": "1.2.x"
+  },
+  "scripts": {
+    "start": "node index.js"
   }
 }

@@ -1,6 +1,8 @@
 var express = require("express")
   , path = require('path')
-  , dotenv = require('dotenv');
+  , dotenv = require('dotenv')
+  , fs = require('fs')
+  ;
 
 dotenv.load();
 
@@ -12,7 +14,8 @@ var io = require('socket.io').listen(server, {log:false});
 io.set('transports', ['xhr-polling']);
 io.set('polling duration', 10);
 TESTS = require('../config.json').tests;
-var DEBUG = true;
+BUILDS = require('../config.json').builds;
+DEBUG = true;
 
 app.use(express.logger());
 
@@ -33,6 +36,13 @@ var Devices = db.collection('devices');
 var Logs = db.collection('logs');
 
 var auth = express.basicAuth(process.env.AUTH_USER || "tessel", process.env.AUTH_PW || "password");
+
+// make sure we have builds, otherwise error out
+BUILDS.forEach(function(build){
+  fs.exists(path.join(__dirname, '/public/builds/'+build+'.bin'), function(exists){
+    if (!exists) throw new Error("Missing binary /public/builds/"+build+".bin");
+  })
+});
 
 app.get('/', auth, function(req, res) {
   var benches = [];
@@ -251,11 +261,28 @@ app.get('/logs', auth, function(req, res){
   });
 });
 
-app.get('/client', function(req, res){
-  // returns the md5 of the client code
-  // the client should check if this matches their current build 
-  // if not, they should download new client from /client/build
+BUILDS.forEach(function(build){
+  app.get('/builds/'+build, function(req, res){
+    res.sendfile('/builds/'+build+".bin", {root: './public'});
+  });
+
+  app.get('/builds/'+build+"/info", function(req, res){
+    var buildInfo = require('./build.json')[build];
+    res.json({"md5sum": buildInfo.md5sum, "build": buildInfo.build});
+  });
+})
+
+app.get('/builds', function(req, res){
   res.json(require('./build.json'));
+});
+
+app.get('/client', function(req, res){
+  res.sendfile("/builds/client.tar.gz", {root: './public'});
+});
+
+app.get('/client/info', function(req, res){
+  console.log("client", require('./config.json').client);
+  res.send(require('./config.json').client);
 });
 
 server.listen(app.get('port'), function() {
