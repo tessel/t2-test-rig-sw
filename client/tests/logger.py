@@ -49,6 +49,8 @@ class Logger:
     if isJson:
       outStr += text+"}"
     else:
+      # escape "
+      text = text.replace('"', '\\"')
       outStr += '"'+text+'"}'
 
     return outStr

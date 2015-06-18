@@ -67,6 +67,13 @@ html, body {
 
 }
 
+#flash {
+  width:100%;
+  margin-top:-30px;
+  padding: 30px;
+  background-color:rgb(255, 233, 121);
+  display: none;
+}
 
 #technical-logo {
   font-family: Vannoidyk;
@@ -122,6 +129,7 @@ html, body {
 .statusText {
   color: white;
 }
+
 /*
 .success {
   display: none;

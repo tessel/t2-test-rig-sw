@@ -4,14 +4,32 @@ var express = require("express")
   , configs = require('./config.json')
   , child_process = require('child_process')
   , request = require('request')
+  , async = require('async')
+  , fs = require('fs')
+  , crypto = require('crypto')
+  , path = require('path')
   ;
 
-configs.tests = require('../config.json').tests;
+configs.tests = require(path.join(__dirname, '../config.json')).tests;
+try {
+  configs.builds = require(path.join(__dirname, './build.json'));
+} catch (e) {
+  // we don't have a builds.json, we need to grab it
+  getBuilds(function(err){
+    if (err) throw err;
+  });
+}
+
+var DEBUG = true;
+var BUILD_PATH = configs.server+"builds/";
+var BUILDS = require(path.join(__dirname, '../config.json')).builds;
 var LOG_STATUS = {"inProgress": 0, "pass": 1, "fail": -1};
 var LOG_NUMBERS = [];
 Object.keys(LOG_STATUS).forEach(function(status){
   LOG_NUMBERS.push(LOG_STATUS[status]);
 });
+
+var lockedTesting = false;
 
 var app = express();
 var http = require('http');
@@ -23,7 +41,7 @@ io.set('polling duration', 10);
 
 app.use(express.logger());
 
-app.set('port', process.env.PORT || 2000);
+app.set('port', process.env.PORT || 3000);
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
 app.use(express.logger('dev'));
@@ -31,10 +49,16 @@ app.use(express.bodyParser());
 app.use(express.methodOverride());
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
+app.use("/bin", express.static(path.join(__dirname, 'bin')));
 app.use(express.favicon('public/images/favicon.ico')); 
 
 app.get('/', function(req, res) {
-  res.render('index', {name: configs.name, rigs: rig_usb.rigs, tests: configs.tests})
+  var rigs = rig_usb.rigs.map(function(r){
+    return parseRig(r);
+  });
+
+  res.render('index', {name: configs.name, rigs: rigs, 
+    tests: configs.tests, builds: configs.builds, host: configs.host})
 });
 
 function parseRig(dev){
@@ -42,27 +66,54 @@ function parseRig(dev){
 }
 
 String.prototype.escapeSpecialChars = function() {
-    return this.replace(/\n/g, "\\n")
-               .replace(/\'/g, "\\'")
-               .replace(/\"/g, '\\"')
+    return this.replace(/\n/g, "")
                .replace(/\&/g, "\\&")
                .replace(/\r/g, "\\r")
                .replace(/\t/g, "\\t")
-               .replace(/\b/g, "\\b")
                .replace(/\f/g, "\\f");
 };
 
-function updateDeviceStatus(data){
-  io.sockets.emit("updateTest", {serialNumber: data.serialNumber
-    , test: data.test, deviceId: data.deviceId, status: data.data.status});
+function postRigs(rigs) {
+  rigs = rigs.map(function(r){
+    return r.serialNumber
+  });
+
+  request.post(configs.server+'bench', {body: {id: configs.name, 
+    time: new Date().getTime(), build: configs.build, ip: '0.0.0.0', 
+    gateway:'0.0.0.0', ssh: '0.0.0.0', port:'2222', rigs: rigs}
+    , json: true});
 }
 
-function reportLog(data, isJSON){
+function updateDeviceStatus(data){
+  io.sockets.emit("updateTest", {serialNumber: data.serialNumber
+    , test: data.test, deviceId: data.device, status: data.data.status});
+
+  request.post(configs.server+'d/'+data.device+'/test', {"body": {"id": data.device, 
+    "bench": configs.name, "time": new Date().getTime(), 
+    "build": configs.build, "rig": data.serialNumber, 
+    "test": data.test, "status": data.data.status}, json: true});
+}
+
+function reportLog(data, isJSON, isErr){
+  console.log("reporting", {body: { "identifiers":  {"device": data.device, "bench": configs.name, "rig": data.serialNumber}
+    , "data": isJSON ? JSON.stringify(data) : data.toString()}});
+  request.post(configs.server+'logs', {body: { "identifiers":  {"device": data.device, "bench": configs.name, "rig": data.serialNumber}
+    , "data": isJSON ? JSON.stringify(data) : data.toString()}, json: true});
 }
 
 function deviceFinished(serialNumber, passed) {
   io.sockets.emit("updateTest", {serialNumber: serialNumber
     , test: "all", status: passed})
+}
+
+function emitMessage(message, lock) {
+  lockedTesting = lock;
+
+  io.sockets.emit("message", {message: message, lock: lockedTesting});
+}
+
+function emitNote(data) {
+  io.sockets.emit("addNote", {serialNumber: data.serialNumber, note: data.data});
 }
 
 rig_usb.on('attach', function(dev){
@@ -71,18 +122,27 @@ rig_usb.on('attach', function(dev){
   dev.on('detach', function() {
     console.log('Device detach');
     io.sockets.emit("removeRig", parseRig(dev));
+    postRigs(rig_usb.rigs);
   });
 
   dev.on('ready', function() {
     console.log('Device with serial number', dev.serialNumber, 'is ready');
     dev.ready_led(true);
     io.sockets.emit("addRig", parseRig(dev));
+    postRigs(rig_usb.rigs);
   });
 
   var running = false;
 
   dev.on('button-press', function() {
-    io.sockets.emit("testing", dev.serialNumber);
+    if (lockedTesting) {
+      emitMessage("Cannot test unit. Either there is a build update happening or the system needs a reboot", true);
+
+      dev.ready_led(false);
+      return;
+    }
+
+    io.sockets.emit("startTest", dev.serialNumber);
     console.log("Button pressed on", dev.serialNumber);
 
     if (running) {
@@ -97,38 +157,61 @@ rig_usb.on('attach', function(dev){
     running = true;
 
     var ps = child_process.spawn('python', ['-u', 'tests/tests.py', dev.serialNumber])
-    // ps.stdout.pipe(process.stdout)
-    // ps.stderr.pipe(process.stderr)
+    function parseData(data){
+      console.log("parseData", data);
+      // check if the data has a status code
+      if (data.data && LOG_NUMBERS.indexOf(Number(data.data.status)) >= 0) {
+        console.log("updating device status", data);
+        updateDeviceStatus(data);
+      }
+      reportLog(data, true);
+    }
+
+    function escapeData(data, eachFunc) {
+      if (data == ' ') return;
+
+      fixedData = data.toString().escapeSpecialChars();
+      fixedData = fixedData.split(/\}\s*\t*\{/);
+      console.log("data", fixedData);
+      var fixJSON = fixedData.length > 1 ? true : false;
+      fixedData.forEach(function(d, i){
+        if (fixJSON) {
+          // for the first obj we need to add a '}', middle ones add a '{}', end one add a '{'
+          if (i == 0){
+            d = d+'}';
+          } else if (i == (fixedData.length - 1)) {
+            d = '{'+d;
+          } else {
+            d = '{'+d+'}';
+          }
+        }
+        console.log(i, d);
+
+        if (eachFunc && typeof(eachFunc) == 'function') {
+          eachFunc(d, i);
+        }
+      });
+    }
 
     // pipe data up to testaltor
     ps.stdout.on('data', function (data) {
-      try {
-        data = data.toString().escapeSpecialChars();
-        data = JSON.parse(data);
-        console.log("data", data);
-
-        // check if the data has a status code
-        if (Number(data.status) in LOG_NUMBERS) {
-          updateDeviceStatus(data);
-        }
-
-        reportLog(data, true);
-      } catch (e) {
-        // not json
-        console.log("orig data", data.toString());
-        reportLog(data, false);
-      }
+      escapeData(data, function(d, i){
+        parseData(JSON.parse(d));
+      });
     });
 
     ps.stderr.on('data', function (data) {
-      console.log("stderr", data.toString());
-      try {
-        data = data.toString().escapeSpecialChars();
-        data = JSON.parse(data);
-        reportLog(data, true);
-      } catch (e) {
-        reportLog(data, false);
-      }
+      var note = '';
+      var item = {};
+      escapeData(data, function(d, i){
+        d = JSON.parse(d);
+        note = note + '\n'+d.data;
+        item = d;
+      });
+
+      item.data = note;
+      reportLog(item, true);
+      emitNote(item);
     });
 
     ps.on('close', function(code) {
@@ -137,6 +220,7 @@ rig_usb.on('attach', function(dev){
       if (code == 0) {
         dev.pass_led(true);
         // successfully tested
+        console.log("passed");
         deviceFinished(dev.serialNumber, true);
       } else {
         dev.fail_led(true);
@@ -149,22 +233,117 @@ rig_usb.on('attach', function(dev){
 
   dev.on('error', function(e) {
       console.log("Error on ", dev.serialNumber);
-      throw e;
+      emitMessage("Error on "+dev.serialNumber+": "+e+e.stack, false);
   });
 });
 rig_usb.start();
 
+function heartbeat() {
+  if (DEBUG) console.log("heartbeat at ", new Date().getTime());
+
+  rigs = rig_usb.rigs.map(function(r){
+    return r.serialNumber
+  });
+
+  request.post(configs.server+'bench', {body: {id: configs.name, 
+    time: new Date().getTime(), build: configs.build, rigs: rigs}, json: true});
+}
+
+function getBuilds(cb){
+  var buildsJSON = {};
+
+  emitMessage("Updating builds. Do not test until update is finished.", true);
+
+  async.forEachOf(BUILDS, function(build, i, callback){
+    var url = BUILD_PATH+build;
+    request(url, function(err, res, buildBin) {
+      if (err) return callback(new Error("Could not get build url at "+url+". Got "+err));
+
+      var md5 = crypto.createHash(algorithm || 'md5')
+        .update(buildBin, 'utf8')
+        .digest(encoding || 'hex')
+
+      // check md5 sum
+      request(url+"/info", function(err, res, body){
+        body = JSON.parse(body);
+        if (md5 != body.md5sum) return callback(new Error("Md5sum of "+url+" did not match. Got: "+md5+", expected: "+body));
+
+        buildsJSON[build] = {md5sum: body.md5sum, time: new Date().getTime(), build: body.build};
+
+        fs.writeFile(path.join(__dirname, '/bin/'+build+".bin"), buildBin, function(err){
+          if (err) return callback(new Error("could not write binary for "+build+", got "+err));
+
+          return callback();
+        });
+      });
+    });
+  }, function(err){
+    if (err) cb(err);
+    // write the builds.json file
+      fs.writeFile(path.join(__dirname, '/bin/'+build+".bin"), JSON.stringify(buildsJSON), function(err){
+        // reload configs
+        configs.builds = require('./build.json');  
+        emitMessage("Update finished.", false);
+
+        cb(err);
+      });
+  });
+}
+
+function checkBuild() {
+  if (DEBUG) console.log("checking builds");
+
+  // check all md5sums
+  async.forEachOf(BUILDS, function(build, i, callback){
+    request(BUILD_PATH+build+'/info', function(err, res, body) {
+      body = JSON.parse(body);
+      if (body.md5sum != configs.builds[build].md5sum) return callback("md5 does not match for "+build);
+
+      callback();
+    });
+  }, function(err){
+    if (err) {
+      getBuilds();
+    } else {
+      console.log("Builds all match");
+    }
+  });
+}
+
+function checkClientBuild() {
+  request(configs.server + "/client", function (err, res, version) {
+    if (configs.version != version) {
+
+      var newConfigs = JSON.stringify({name: configs.name, server: configs.server, version: configs.version, updateVersion: version});
+      // write the updateVersion key
+      fs.writeFile(path.join(__dirname, "./config.json"), newConfigs, function(err){
+        if (err) {
+          emitMessage("Could not finish checking client build", true);
+          throw err;
+        }
+
+        // flash message that the system needs a reboot to update client code
+        emitMessage("This test rig is outdated. Reboot to update.", true);
+      });
+    }
+  });
+}
+
+setInterval(function(){
+  heartbeat();
+  checkBuild();
+}, 1000*5*60);
+// }, 1000*5*60); // every 5 min check
 
 // tell test rigs to retry
 io.sockets.on('connection', function (client) {
   client.on('retry', function(data) {
+    // { rig: '082BK9ZSFN5ZMR39MK63B4RA8T', test: 'all' }
     console.log("retry", data);
   })
 });
 
 server.listen(app.get('port'), function() {
-  console.log("emitting heartbeat");
-  // request.post(host+'/bench', {body: {id: config.name}, json: true});
 
   console.log("Listening on " + app.get('port'));
 });

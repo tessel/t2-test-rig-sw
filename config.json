@@ -1,4 +1,5 @@
 {
 	"tests":
-    ["SAM", "Flash", "BusVoltage", "TestPorts", "Overcurrent", "Script"]
+    ["SAM", "Flash", "BusVoltage", "TestPorts", "Overcurrent", "Script"], 
+    "builds": ["firmware", "boot", "openwrt-ramips-mt7620-Default-u-boot", "openwrt-ramips-mt7620-tessel-squashfs-sysupgrade"]
 }

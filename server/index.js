@@ -12,7 +12,8 @@ var io = require('socket.io').listen(server, {log:false});
 io.set('transports', ['xhr-polling']);
 io.set('polling duration', 10);
 TESTS = require('../config.json').tests;
-var DEBUG = true;
+BUILDS = require('../config.json').builds;
+DEBUG = true;
 
 app.use(express.logger());
 
@@ -251,11 +252,23 @@ app.get('/logs', auth, function(req, res){
   });
 });
 
-app.get('/client', function(req, res){
-  // returns the md5 of the client code
-  // the client should check if this matches their current build 
-  // if not, they should download new client from /client/build
+BUILDS.forEach(function(build){
+  app.get('/builds/'+build, function(req, res){
+    res.sendfile(build+".bin", {root: './public'});
+  });
+
+  app.get('/builds/'+build+"/info", function(req, res){
+    var buildInfo = require('./build.json')[build];
+    res.json({"md5sum": buildInfo.md5sum, "build": buildInfo.build});
+  });
+})
+
+app.get('/builds', function(req, res){
   res.json(require('./build.json'));
+});
+
+app.get('/client', function(req, res){
+  res.send(require('./config.json').version);
 });
 
 server.listen(app.get('port'), function() {

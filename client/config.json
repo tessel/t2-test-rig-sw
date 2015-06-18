@@ -1,4 +1,7 @@
 {
-  "name": "host 1",
-  "server": "http://localhost:3000"
+  "name": "host1",
+  "server": "http://localhost:8080/",
+  "version": "e3d925f93bd6ea70862b8a13c67d05afb008a0d6",
+  "host": {"bootBin": "bootBin", "firmwareBin": "firmwareBin"
+  	, "openwrtBoot": "openwrtBoot", "openwrtBuild": "openwrtBuild"}
 }

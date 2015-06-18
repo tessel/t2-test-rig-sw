@@ -3,92 +3,149 @@ extends layout
 block head
   script
     $(function(){
-      var STATUS_COLORS = {'In Progress': '#f08a24', 'Pass': '#43AC6A', 'Fail': '#f04124'};
+      var STATUS_COLORS = {'In Progress': '#f08a24', 'Pass': '#43AC6A', 'Fail': '#f04124', 'Disabled': '#CACACA'};
       var TESTS = !{JSON.stringify(tests)};
       function switchStatus(text, ele) {
         $(ele.children('.statusText')[0]).html(text);
         ele.css('background-color', STATUS_COLORS[text] ? STATUS_COLORS[text] : '');
-        
-        // if status is a fail, then also display retry button
-        if (text == 'Fail') {
-          $(ele.children('.retry')[0]).show();
-        } else {
-          // do not display retry
-          $(ele.children('.retry')[0]).hide();
-        }
       }
       var socket = io.connect();
-      socket.on('test', function(data){
-        var testStatus = $('#'+data.rig+"-"+data.test+"-status");
-        if (data.clear) {
-          // reset all to untested
-          $('.'+data.rig+'-status').each(function(i, ele){
-            switchStatus("", $(ele));
-          });
+      socket.on('message', function(data){
+        console.log("emit message", data);
+        var flashEle = $('#flash');
+        // data.message = message to flash
+        // data.lock = allow/disallow testing
+        flashEle.html(data.message);
+        flashEle.show();
+        if (!data.lock) {
+          // message fades within 10 seconds
+          flashEle.css('background-color', 'rgb(255, 233, 121)');
+          flashEle.fadeOut(10*1000);
+        } else {
+          flashEle.css('background-color', 'red');
         }
-        if (data.status == 1) {
-          switchStatus('Pass', $('#'+data.rig+'-'+data.test+'-status'));
-        } else if (data.status < 0) {
-          switchStatus('Fail', $('#'+data.rig+'-'+data.test+'-status'));
-        } else if (data.status == 0) {
-          switchStatus('In Progress', $('#'+data.rig+'-'+data.test+'-status'));
-        }
-        $('.'+data.rig+"-deviceId").html(data.device);
       });
-      socket.on('addRig', function(rig){
-        var rigEle = $('<tr>')
-          .append($('<td>').append($('<div>').addClass("button").attr("rig", rig.serialNumber).attr("test", "all").attr("id", rig.serialNumber+"-test-all").text('Test')))
-          .append($('<td>').text(rig.serialNumber))
-          .attr("id", rig.serialNumber)
-          .append($('<td>').text(rig.build));
-        TESTS.forEach(function(test){
-          rigEle.append($('<td>').addClass("testingStatus "+rig.serialNumber+"-status").attr("id", rig.serialNumber+"-"+test+"-status")
-            .append($("<div>").addClass("statusText"))
-            .append($("<div>").addClass("button test retry").attr("rig", rig.serialNumber).attr("test", test).text("Test"))
-          );
+      socket.on('addNote', function(data){
+        console.log("adding note", data);
+        var rig = data.serialNumber;
+        var note = data.note;
+        $($('#'+rig+'-notes').children('.statusText')[0]).html(note);
+      });
+      socket.on('updateTest', function(data){
+        console.log("update test received", data);
+        // update rig with device id
+        var rig = data.serialNumber;
+        var device = data.deviceId;
+        var test = data.test;
+        var status = data.status; 
+        var rigEle = $("#"+rig);
+        // check which test
+        if (test == 'all') {
+          $("#"+rig+"-test-all").show();
+          // tests all passed or failed
+          if (status) {
+            rigEle.css('background-color', STATUS_COLORS['Pass']);
+          } else {
+            rigEle.css('background-color', STATUS_COLORS['Fail']);
+          }
+        } else {
+          // clear out note
+          $($('#'+rig+'-notes').children('.statusText')[0]).html('');
+          // change status to inprogress
+            rigEle.css('background-color', STATUS_COLORS['In Progress']);
+          // find the test, mark it as passed or failed
+          if (status == 1) {
+            switchStatus("Pass", $("#"+rig+"-"+test+"-status"));
+          } else if (status < 0) {
+            switchStatus("Fail", $("#"+rig+"-"+test+"-status"));
+          } else if (status == 0) {
+            switchStatus("In Progress", $("#"+rig+"-"+test+"-status"));
+          }
+        }
+        $('#'+rig+"-device").html(device);
+      });
+      function clearAll(rigEle){
+        var statusEles = rigEle.find(".testingStatus");
+        statusEles.each(function(i, ele){
+          $(ele).css('background-color', 'white');
+          $($(ele).find('.statusText')[0]).html('');
         });
-        $('#tableBody').append(rigEle);
+      }
+      socket.on('addRig', function(rig){
+        var rigEle = $('#'+rig.serialNumber);
+        if (rigEle.length > 0) {
+          // we already have this rig on the UI
+          rigEle.css('background-color', 'white');
+          rigEle.css('opacity', '1');
+          clearAll(rigEle);
+        } else {
+          rigEle = $('<tr>')
+            .append($('<td>').text(rig.serialNumber))
+            .attr("id", rig.serialNumber)
+            .append($('<td>').text(rig.build))
+            .append($('<td>').attr("id", rig.serialNumber+"-device"));
+          TESTS.forEach(function(test){
+            rigEle.append($('<td>').addClass("testingStatus "+rig.serialNumber+"-status").attr("id", rig.serialNumber+"-"+test+"-status")
+              .append($("<div>").addClass("statusText"))
+              .append($("<div>").addClass("button test retry").attr("rig", rig.serialNumber).attr("test", test).text("Test"))
+            );
+          });
+          rigEle.append($('<td>').attr('id', rig.serialNumber+'-notes').append($('<div>').addClass("statusText")));
+          $('#tableBody').append(rigEle);
+        }
+      });
+      socket.on('startTest', function(serial){
+        var rigEle = $('#'+serial);
+        clearAll(rigEle);
       });
       socket.on('removeRig', function(rig){
         // find the rig
-        $('#'+rig.serialNumber).remove();
+        var rigEle = $('#'+rig.serialNumber);
+        // gray it out
+        rigEle.css('background-color', STATUS_COLORS['Disabled']);
       });
       socket.on('done', function(data){
         // tests are finished
         // show test button
         $('#'+data.rig+'-test-all').removeClass('disabled');
       });
-      $('.test').on('click', function(){
-        var rigId = $(this).attr('rig');
-        var testId = $(this).attr('test');
-        socket.emit('retry', {rig: rigId, test: testId});
-      });
 
     })
 
 block content
   h3 #{name} | Host
+  .hostData
+      .bootBin Boot Binary: 
+        a(href="/bin/boot.bin") #{host.bootBin}
+      .firmwareBin Firmware Binary: 
+        a(href="/bin/firmware.bin") #{host.firmwareBin}
+      .openwrtBoot OpenWrt Boot: 
+        a(href="/bin/openwrt-ramips-mt7620-Default-u-boot.bin") #{host.openwrtBoot}
+      .openwrtBuild OpenWrt Build: 
+        a(href="/bin/openwrt-ramips-mt7620-tessel-squashfs-sysupgrade.bin") #{host.openwrtBuild}
+  
+  p
+
   table
     thead
       tr
-        th
         th Rig
         th Build
         th Device
         each test in tests
           th #{test}
+        th Notes
     tbody#tableBody
         each rig in rigs
-          tr(id="#{rig.serialNumber")
-            td
-              .button.test(rig="#{rig.serialNumber}", test="all", id="#{rig.serialNumber}-test-all") Test
+          tr(id="#{rig.serialNumber}")
             td 
               | #{rig.serialNumber} 
             td
               | #{rig.build}
-            td
+            td(id="#{rig.serialNumber}-device")
               | #{rig.device}
             each test in tests
               td.testingStatus(class="#{rig.serialNumber}-status", id="#{rig.serialNumber}-#{test}-status")
                 .div.statusText
-                .button.test.retry(rig="#{rig.serialNumber}", test="#{test}") Test
+            td(id="#{rig.serialNumber}-notes")
+              .div.statusText
