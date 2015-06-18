@@ -1,3 +1,6 @@
 [submodule "client/tests/pyOCD"]
 	path = client/tests/pyOCD
 	url = https://github.com/kevinmehall/pyOCD.git
+[submodule "client/tests/pyusb"]
+	path = client/tests/pyusb
+	url = https://github.com/walac/pyusb
