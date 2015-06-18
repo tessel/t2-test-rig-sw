@@ -85,6 +85,7 @@ def power_test(rig, port):
     
     # turn on port power
     rig.uut_digital(port['name'][4].lower(), 1)
+    time.sleep(1)
     
     # on voltage measurement
     v_on = riglib.counts_to_volts(rig.analog(pin_v) * div)
@@ -115,6 +116,7 @@ def power_test(rig, port):
                     v_on         > 3.0  ,
                     i_port_open  < 0.02 ,
                     i_port_short < 0.3  ,
+                    i_uut_short  < 0.5  ,
                 ):
         pass
         raise ValueError('FAILED PORT CURRENT LIMIT TEST ON ' + port['name'])

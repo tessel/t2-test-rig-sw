@@ -20,32 +20,28 @@ time.sleep(1)
 
 # Power on via 5V in pin
 rig.digital('UUTPOWER_USB', 1)
-time.sleep(1)
+time.sleep(2)
 
-# # Program SAM via SWD
-# ### begin sam test
-
-targetSerial = rig.uut_serial()
+# Program SAM via SWD
+rig.enable_pyocd()
+targetSerial = rig.uut_serial
 log.start(deviceId = targetSerial)
 log.startTest('SAM')
 print "Obtained target serial "+ targetSerial
-
 try: 
-    sam_flash = rig.pyocd().flash
+    sam_flash = rig.pyocd.flash
     sam_flash.init()
     print "Writing SAM flash...",
     sam_flash.flashBinary(os.path.join(bin_dir, 'boot.bin'),     0)
     sam_flash.flashBinary(os.path.join(bin_dir, 'firmware.bin'), 0x1000)
     log.endTest(LOG_STATUS["pass"])
-except: 
+except:
     log.endTest(LOG_STATUS["fail"])
     raise
-
 # TODO: set bootloader protection
-rig.pyocd().target.reset()
-time.sleep(1.0) # Wait for device to show up on USB
-
-
+rig.pyocd.target.reset()
+rig.disable_pyocd()
+time.sleep(2.0) # Wait for device to show up on USB
 
 # Load flash via USB
 try: 
@@ -79,7 +75,7 @@ except:
 try:
     log.startTest('BusVoltage')
     # give the USB controller time to turn on, then check the node voltages again
-    time.sleep(15)
+    time.sleep(20)
     bus_voltage_test.yes_fw_yes_os(rig)
     log.endTest(LOG_STATUS["pass"])
 except:

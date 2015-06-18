@@ -70,7 +70,7 @@ function postRigs(rigs) {
     return r.serialNumber
   });
 
-  request.post(configs.server+'bench', {body: {id: configs.host.name, 
+  request.post(configs.host.server+'bench', {body: {id: configs.host.name, 
     time: new Date().getTime(), build: configs.host.build, ip: '0.0.0.0', 
     gateway:'0.0.0.0', ssh: '0.0.0.0', port:'2222', rigs: rigs}
     , json: true});
@@ -80,14 +80,14 @@ function updateDeviceStatus(data){
   io.sockets.emit("updateTest", {serialNumber: data.serialNumber
     , test: data.test, deviceId: data.device, status: data.data.status});
 
-  request.post(configs.server+'d/'+data.device+'/test', {"body": {"id": data.device, 
+  request.post(configs.host.server+'d/'+data.device+'/test', {"body": {"id": data.device, 
     "bench": configs.host.name, "time": new Date().getTime(), 
     "build": configs.host.build, "rig": data.serialNumber, 
     "test": data.test, "status": data.data.status}, json: true});
 }
 
 function reportLog(data, isJSON, isErr){
-  request.post(configs.server+'logs', {body: { "identifiers":  {"device": data.device, "bench": configs.host.name, "rig": data.serialNumber}
+  request.post(configs.host.server+'logs', {body: { "identifiers":  {"device": data.device, "bench": configs.host.name, "rig": data.serialNumber}
     , "data": isJSON ? JSON.stringify(data) : data.toString()}, json: true});
 }
 
@@ -158,7 +158,7 @@ rig_usb.on('attach', function(dev){
     }
 
     function escapeData(data, eachFunc) {
-      if (data == ' ') return;
+      if (!data || /^\s*$/.test(data)) return;
 
       fixedData = data.toString().escapeSpecialChars();
       fixedData = fixedData.split(/\}\s*\t*\{/);
@@ -234,7 +234,7 @@ function heartbeat() {
     return r.serialNumber
   });
 
-  request.post(configs.server+'bench', {body: {id: configs.host.name, 
+  request.post(configs.host.server+'bench', {body: {id: configs.host.name, 
     time: new Date().getTime(), build: configs.host.build, rigs: rigs}, json: true});
 }
 
@@ -307,10 +307,10 @@ function checkBuild() {
 }
 
 function checkClientBuild() {
-  request(configs.server + "/client", function (err, res, version) {
+  request(configs.host.server + "/client", function (err, res, version) {
     if (configs.version != version) {
 
-      var newConfigs = JSON.stringify({name: configs.host.name, server: configs.server, version: configs.version, updateVersion: version});
+      var newConfigs = JSON.stringify({name: configs.host.name, server: configs.host.server, version: configs.version, updateVersion: version});
       // write the updateVersion key
       fs.writeFile(path.join(__dirname, "./config.json"), newConfigs, function(err){
         if (err) {
