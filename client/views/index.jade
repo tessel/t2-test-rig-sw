@@ -113,16 +113,26 @@ block head
     })
 
 block content
-  h3 #{name} | Host
+  h3 Host #{host.name} | build: #{host.build}
   .hostData
-      .bootBin Boot Binary: 
-        a(href="/bin/boot.bin") #{host.bootBin}
-      .firmwareBin Firmware Binary: 
-        a(href="/bin/firmware.bin") #{host.firmwareBin}
-      .openwrtBoot OpenWrt Boot: 
-        a(href="/bin/openwrt-ramips-mt7620-Default-u-boot.bin") #{host.openwrtBoot}
-      .openwrtBuild OpenWrt Build: 
-        a(href="/bin/openwrt-ramips-mt7620-tessel-squashfs-sysupgrade.bin") #{host.openwrtBuild}
+    table
+      thead
+        tr
+          th Binary
+          th MD5
+          th Build
+          th Updated
+      tbody
+        each val, key in builds
+          tr
+            td
+              a(href="/bin/#{key}.bin") #{key}
+            td
+              | #{val.md5sum}
+            td
+              | #{val.build}
+            td
+              | #{val.time}
   
   p
 

@@ -18,6 +18,8 @@ var LOG_NUMBERS = [];
 Object.keys(LOG_STATUS).forEach(function(status){
   LOG_NUMBERS.push(LOG_STATUS[status]);
 });
+configs.host = require(path.join(__dirname, configs.hostPath));
+
 
 var lockedTesting = false;
 
@@ -47,8 +49,8 @@ app.get('/', function(req, res) {
     return parseRig(r);
   });
 
-  res.render('index', {name: configs.name, rigs: rigs, 
-    tests: configs.tests, builds: configs.builds, host: configs.host})
+  res.render('index', {host: configs.host, rigs: rigs, 
+    tests: configs.tests, builds: configs.builds})
 });
 
 function parseRig(dev){
@@ -68,8 +70,8 @@ function postRigs(rigs) {
     return r.serialNumber
   });
 
-  request.post(configs.server+'bench', {body: {id: configs.name, 
-    time: new Date().getTime(), build: configs.build, ip: '0.0.0.0', 
+  request.post(configs.server+'bench', {body: {id: configs.host.name, 
+    time: new Date().getTime(), build: configs.host.build, ip: '0.0.0.0', 
     gateway:'0.0.0.0', ssh: '0.0.0.0', port:'2222', rigs: rigs}
     , json: true});
 }
@@ -79,15 +81,13 @@ function updateDeviceStatus(data){
     , test: data.test, deviceId: data.device, status: data.data.status});
 
   request.post(configs.server+'d/'+data.device+'/test', {"body": {"id": data.device, 
-    "bench": configs.name, "time": new Date().getTime(), 
-    "build": configs.build, "rig": data.serialNumber, 
+    "bench": configs.host.name, "time": new Date().getTime(), 
+    "build": configs.host.build, "rig": data.serialNumber, 
     "test": data.test, "status": data.data.status}, json: true});
 }
 
 function reportLog(data, isJSON, isErr){
-  console.log("reporting", {body: { "identifiers":  {"device": data.device, "bench": configs.name, "rig": data.serialNumber}
-    , "data": isJSON ? JSON.stringify(data) : data.toString()}});
-  request.post(configs.server+'logs', {body: { "identifiers":  {"device": data.device, "bench": configs.name, "rig": data.serialNumber}
+  request.post(configs.server+'logs', {body: { "identifiers":  {"device": data.device, "bench": configs.host.name, "rig": data.serialNumber}
     , "data": isJSON ? JSON.stringify(data) : data.toString()}, json: true});
 }
 
@@ -234,8 +234,8 @@ function heartbeat() {
     return r.serialNumber
   });
 
-  request.post(configs.server+'bench', {body: {id: configs.name, 
-    time: new Date().getTime(), build: configs.build, rigs: rigs}, json: true});
+  request.post(configs.server+'bench', {body: {id: configs.host.name, 
+    time: new Date().getTime(), build: configs.host.build, rigs: rigs}, json: true});
 }
 
 function getBuilds(cb){
@@ -310,7 +310,7 @@ function checkClientBuild() {
   request(configs.server + "/client", function (err, res, version) {
     if (configs.version != version) {
 
-      var newConfigs = JSON.stringify({name: configs.name, server: configs.server, version: configs.version, updateVersion: version});
+      var newConfigs = JSON.stringify({name: configs.host.name, server: configs.server, version: configs.version, updateVersion: version});
       // write the updateVersion key
       fs.writeFile(path.join(__dirname, "./config.json"), newConfigs, function(err){
         if (err) {
