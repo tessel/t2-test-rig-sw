@@ -59,7 +59,7 @@ def helper(rig, expected):
     
     print verdict
     if 'FAIL' in verdict:
-        raise ValueError('invalid node voltage')
+        raise ValueError(verdict)
 
 def no_fw_no_os(rig):
     helper(rig, no_firmware_no_linux)

@@ -374,7 +374,9 @@ io.sockets.on('connection', function (client) {
   if (!seekerAttached) {
     seekerAttached = true;
     var seeker = new t2.discover.TesselSeeker().start();
-    var usbOpts = {}
+    var verifyFile = fs.readFileSync('./deadbeef.hex');
+    var usbOpts = {filePath: '/dev/sda', bytes:84, verify: verifyFile}
+
     var ethOpts = {}
 
     seeker.on('usbConnection', function(tessel){
@@ -394,37 +396,28 @@ io.sockets.on('connection', function (client) {
       if (tessel.connection.connectionType == 'USB') {
         io.sockets.emit("updateThTest", {test: 'name', 'tessel': sanitizedTessel, 'status': 1});
 
+        tessel.setRedLED(0);
+        tessel.setGreenLED(0);
+        tessel.setBlueLED(0);
+
         console.log("starting usb & ethernet tests on", sanitizedTessel);
         // now we can start ethernet and usb tests
-        throughHoleTest()
+        throughHoleTest(usbOpts, ethOpts, tessel)
         .then(function(){
           // all passed
           io.sockets.emit("updateThTest", {test: 'all', 'tessel': sanitizedTessel, 'status': 1});
         })
         .catch(function(err){
           console.log("th err", err);
+          tessel.setRedLED(1);
+
           io.sockets.emit("updateThTest", {test: 'all', 'tessel': sanitizedTessel, 'status': -1});
         })
-
-        // found the name of the tessel
-        // add only if tessels are over usb
-        // console.log("tessel", tessel.name);
-        // foundTessels.push({serialNumber: tessel.connection.serialNumber,
-        //   name: tessel.name});
-        // console.log("foundTessels", seeker.usbDeviceList);
-        // tessel.connection.end(function(){
-        //   console.log('ending the connection of ', tessel.name);
-        // })
       }
     });
 
     seeker.on('detach', function (tessel){
       if (isSMTTesting) return;
-
-      // go through list of tessels and remove the detached device
-      // console.log("detaching", tessel.connection.serialNumber);
-      // console.log("foundTessels", seeker.usbDeviceList);
-      // console.log("foundTessels", foundTessels);
       io.sockets.emit("removeTesselUSB", sanitizeTessel(tessel));
 
     });
@@ -445,10 +438,13 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
   return t2.Tessel.runUSBTest(usbOpts, selectedTessel)
   .then(function(){
     console.log("usb test passed");
+    tessel.setGreenLED(1);
     io.sockets.emit("updateThTest", {test: 'usb1', 'tessel': sanitizedTessel, 'status': 1});
   }).then(function(){
     t2.Tessel.runEthernetTest(ethOpts, selectedTessel)
     .then(function(){
+      tessel.setBlueLED(1);
+
       console.log("ethernet test passed");
       io.sockets.emit("updateThTest", {test: 'eth', 'tessel': sanitizedTessel, 'status': 1});
     })
