@@ -28,7 +28,7 @@ targetSerial = rig.uut_serial
 log.start(deviceId = targetSerial)
 log.startTest('SAM')
 print "Obtained target serial "+ targetSerial
-try: 
+try:
     sam_flash = rig.pyocd.flash
     sam_flash.init()
     print "Writing SAM flash...",
@@ -44,7 +44,7 @@ rig.disable_pyocd()
 time.sleep(2.0) # Wait for device to show up on USB
 
 # Load flash via USB
-try: 
+try:
     log.startTest('Flash')
     # log.startTest('IO-Inputs')
     # Port IO to inputs
@@ -60,22 +60,33 @@ try:
     spi_flash = rig.uut_flash()
     spi_flash.write_tessel_flash(bin_dir, mac1, mac2)
     spi_flash.release()
-
-    rig.uut_digital('soc', False)
-    time.sleep(0.1)
-    rig.uut_digital('soc', True)
-    time.sleep(0.1)
-    rig.uut_digital('rst', True)
-    print "MTK is hopefully booting"
     log.endTest(LOG_STATUS["pass"])
 except:
     log.endTest(LOG_STATUS["fail"])
     raise
 
 try:
+    log.startTest('Boot')
+    rig.uut_digital('soc', False)
+    time.sleep(0.1)
+    rig.uut_digital('soc', True)
+    time.sleep(0.1)
+    rig.uut_digital('rst', True)
+    
+    print ">>> CONSOLE"
+    console_data = rig.read_console(20)
+    print "<<< CONSOLE"
+    assert("Board: Ralink APSoC DRAM:  64 MB" in console_data)
+    assert("4 ports detected" in console_data)
+    log.endTest(LOG_STATUS["pass"])
+except:
+    log.endTest(LOG_STATUS["fail"])
+    raise
+
+
+try:
     log.startTest('BusVoltage')
     # give the USB controller time to turn on, then check the node voltages again
-    time.sleep(20)
     bus_voltage_test.yes_fw_yes_os(rig)
     log.endTest(LOG_STATUS["pass"])
 except:
