@@ -4,7 +4,7 @@ import usb.core
 import flash
 from flash import Flash
 
-uut_usb = usb.core.find(idVendor = 0x9999, idProduct = 0xFFFF)
+uut_usb = usb.core.find(idVendor = 0x1209, idProduct = 0x7551)
 bin_dir = os.path.join(os.path.dirname(__file__), '../bin')
 
 mac1, mac2 = flash.random_macs() #TODO: get_mac_from_server(rig.uut_serial
