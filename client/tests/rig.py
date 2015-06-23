@@ -188,7 +188,7 @@ class TestRig(object):
         """Find the target SAMD21 on the USB bus and return the pyusb device"""
         if refresh or not self._uut_usb:
             for i in range(0, 50):
-                self._uut_usb = usb.core.find(idVendor = 0x9999, idProduct = 0xFFFF,
+                self._uut_usb = usb.core.find(idVendor = 0x1209, idProduct = 0x7551,
                     custom_match = serial_match(self.uut_serial))
                 if self._uut_usb:
                     break
