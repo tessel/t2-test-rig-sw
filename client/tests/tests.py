@@ -129,8 +129,9 @@ except:
 # LEDs
 
 time.sleep(5)
+# don't power off because wifi tests still need to run
 # log.startTest('PowerOff')
-rig.digital('UUTPOWER_USB', 0)
-rig.digital('UUTPOWER_VIN', 0)
+# rig.digital('UUTPOWER_USB', 0)
+# rig.digital('UUTPOWER_VIN', 0)
 
 log.stop()
