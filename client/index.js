@@ -285,6 +285,7 @@ rig_usb.on('attach', function(dev){
       }
       deviceFinished(dev.serialNumber, passed);
       dev.uut_power(0);
+      dev.testing_led(false);
       dev.ready_led(true);
       running = false;
 
@@ -301,7 +302,6 @@ rig_usb.on('attach', function(dev){
         seeker.start();
       }
 
-      dev.testing_led(false);
       if (code == 0) {
         var deviceStatus = {device: dev.unitUnderTest, serialNumber: dev.serialNumber, test: 'Wifi'}
         deviceStatus.data = {status: 0};
@@ -311,21 +311,23 @@ rig_usb.on('attach', function(dev){
         if (DEBUG) console.log("passed python tests");
         
         if (dev.unitUnderTest) {
+          setTimeout(function(){
+            runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
+              deviceStatus.data = err ? err : "wifi passed";
+              if (err) {
+                emitNote({serialNumber: dev.unitUnderTest, data: err});
+              }
+              // emit up
+              reportLog(deviceStatus, false);
+              deviceStatus.data = {status: err ? -1 : 1};
+              updateDeviceStatus(deviceStatus);
+
+              if (DEBUG) console.log("wifi tests done", deviceStatus);
+
+              doneWithTest(err ? false : true);
+            });
+          }, 5*1000); // give 5 seconds to find any tessels
           // do the wifi test now
-          runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
-            deviceStatus.data = err ? err : "wifi passed";
-            if (err) {
-              emitNote({serialNumber: dev.unitUnderTest, data: err});
-            }
-            // emit up
-            reportLog(deviceStatus, false);
-            deviceStatus.data = {status: err ? -1 : 1};
-            updateDeviceStatus(deviceStatus);
-
-            if (DEBUG) console.log("wifi tests done", deviceStatus);
-
-            doneWithTest(err ? false : true);
-          });
         } else {
           if (DEBUG) console.log("dev.unitUnderTest is null", dev.unitUnderTest);
           // emit wifi test fail
