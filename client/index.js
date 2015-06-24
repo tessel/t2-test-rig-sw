@@ -72,7 +72,8 @@ String.prototype.escapeSpecialChars = function() {
                .replace(/\&/g, "\\&")
                .replace(/\r/g, "\\r")
                .replace(/\t/g, "\\t")
-               .replace(/\f/g, "\\f");
+               .replace(/\f/g, "\\f")
+               .replace(/\u0000/g, "");
 };
 
 function postRigs(rigs) {
@@ -198,11 +199,8 @@ function runWifiTest(wifiOpts, serialNumber, cb){
 
 rig_usb.on('attach', function(dev){
   console.log('Device attach');
-
-  if (isSMTTesting && !seeker) {
-     seeker = new t2.discover.TesselSeeker().start();
-  }
-
+  isSMTTesting = true;
+  
   dev.on('detach', function() {
     console.log('Device detach');
     io.sockets.emit("removeRig", parseRig(dev));
@@ -289,10 +287,20 @@ rig_usb.on('attach', function(dev){
       dev.uut_power(0);
       dev.ready_led(true);
       running = false;
+
+      seeker.stop();
     }
 
     ps.on('close', function(code) {
       if (DEBUG) console.log("Child exited with code", code)
+
+      if (!seeker) {
+        console.log("starting seeker");
+        seeker = new t2.discover.TesselSeeker().start();
+      } else {
+        seeker.start();
+      }
+
       dev.testing_led(false);
       if (code == 0) {
         var deviceStatus = {device: dev.unitUnderTest, serialNumber: dev.serialNumber, test: 'Wifi'}
@@ -445,7 +453,8 @@ try {
 }
 
 io.sockets.on('connection', function (client) {
-  if (!seeker) {
+  if (!seeker && !isSMTTesting) {
+    console.log("starting seeker for through hole testing");
     seeker = new t2.discover.TesselSeeker().start();
 
     seeker.on('usbConnection', function(tessel){
@@ -484,7 +493,7 @@ io.sockets.on('connection', function (client) {
         })
         .catch(function(err){
           // throw err;
-          console.log("th err", err);
+          console.log("th err", err, err.stack);
           tessel.setRedLED(1);
           tesselData.test = 'all';
           tesselData.status = -1;

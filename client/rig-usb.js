@@ -24,7 +24,7 @@ function Rig(dev) {
     try {
         this.usb.open();
     } catch (e) {
-        process.nextTick(function() { self.emit('error', e) });
+        return process.nextTick(function() { self.emit('error', e) });
     }
 
     this.usb.getStringDescriptor(this.usb.deviceDescriptor.iSerialNumber, function (error, data) {
