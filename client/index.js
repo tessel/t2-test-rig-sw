@@ -24,10 +24,17 @@ Object.keys(LOG_STATUS).forEach(function(status){
 
 var lockedTesting = false;
 var isSMTTesting = true; // by default does smt testing
+var seeker = null;
 
 var app = express();
 var http = require('http');
 var server = http.createServer(app);
+
+var verifyFile = fs.readFileSync('./deadbeef.hex');
+var USB_OPTS = {bytes:84, verify: verifyFile}
+var ETH_OPTS = {host: 'www.baidu.com'}
+var WIFI_OPTS = {'ssid': 'technicallyVPN',
+ 'password': 'scriptstick', 'host': 'www.baidu.com', 'timeout': 10}
 
 var io = require('socket.io').listen(server);
 io.set('transports', ['xhr-polling']);
@@ -79,17 +86,23 @@ function postRigs(rigs) {
     , json: true});
 }
 
-function updateDeviceStatus(data){
-  io.sockets.emit("updateTest", {serialNumber: data.serialNumber
-    , test: data.test, deviceId: data.device, status: data.data.status});
+function updateDeviceStatus(data, isTh){
+  console.log("Update device status", data);
 
-  request.post(configs.host.server+'d/'+data.device+'/test', {"body": {"id": data.device, 
+  if (isTh) {
+    io.sockets.emit("updateThTest", {test: data.test, 'tessel': data.tessel, 'status': data.status, 'info': data.info});
+  } else {
+    io.sockets.emit("updateTest", {serialNumber: data.serialNumber
+    , test: data.test, deviceId: data.device, status: data.data.status});
+  }
+
+  request.post(configs.host.server+'d/'+data.device+'/test', {"body": {"id": data.tessel ? data.tessel.serialNumber : data.device, 
     "bench": configs.host.name, "time": new Date().getTime(), 
     "build": configs.host.build, "rig": data.serialNumber, 
-    "test": data.test, "status": data.data.status}, json: true});
+    "test": data.test, "status": data.data ? data.data.status: data.status}, json: true});
 }
 
-function reportLog(data, isJSON, isErr){
+function reportLog(data, isJSON){
   request.post(configs.host.server+'logs', {body: { "identifiers":  {"device": data.device, "bench": configs.host.name, "rig": data.serialNumber}
     , "data": isJSON ? JSON.stringify(data) : data.toString()}, json: true});
 }
@@ -109,8 +122,86 @@ function emitNote(data) {
   io.sockets.emit("addNote", {serialNumber: data.serialNumber, note: data.data});
 }
 
+function parseData(data){
+  console.log("parseData", data);
+  // check if the data has a status code
+  if (data.data && LOG_NUMBERS.indexOf(Number(data.data.status)) >= 0) {
+    updateDeviceStatus(data);
+  }
+  reportLog(data, true);
+}
+
+function escapeData(data, eachFunc) {
+  if (!data || /^\s*$/.test(data)) return;
+
+  fixedData = data.toString().escapeSpecialChars();
+  fixedData = fixedData.split(/\}\s*\t*\{/);
+  console.log("data", fixedData);
+  var fixJSON = fixedData.length > 1 ? true : false;
+  fixedData.forEach(function(d, i){
+    if (fixJSON) {
+      // for the first obj we need to add a '}', middle ones add a '{}', end one add a '{'
+      if (i == 0){
+        d = d+'}';
+      } else if (i == (fixedData.length - 1)) {
+        d = '{'+d;
+      } else {
+        d = '{'+d+'}';
+      }
+    }
+    console.log(i, d);
+
+    if (eachFunc && typeof(eachFunc) == 'function') {
+      eachFunc(d, i);
+    }
+  });
+}
+
+function runWifiTest(wifiOpts, serialNumber, cb){
+  if (!seeker) cb && cb("No Tessel Seeker");
+  console.log("found tessel seeker");
+  function startTest(tessel){
+    t2.Tessel.runWifiTest(wifiOpts, tessel)
+    .then(function(){
+      console.log("passed wifi testing");
+      cb && cb(null);
+    })
+    .catch(function(err){
+      console.log("failed wifi testing", err);
+      cb && cb(err);
+    })
+  }
+  var deviceList = seeker.usbDeviceList;
+
+  var notFoundDevice = deviceList.every(function(device){
+    console.log("finding device", device, serialNumber);
+
+    // figure out which tessel to run the wifi test on
+    if (device.connection.serialNumber == serialNumber) {
+      console.log("found the right tessel", serialNumber);
+      startTest(device);
+      return false; // break
+    } else {
+      // keep going
+      return true;
+    }
+  });
+
+  console.log("notFoundDevice", notFoundDevice);
+  if (notFoundDevice || deviceList.length == 0) {
+    // if device isn't on the list, it may need more time to boot up
+    // but error out for now
+    console.log("did not find tessel for wifi test", serialNumber);
+    cb && cb("Did not found tessel with serial number", serialNumber);
+  }
+}
+
 rig_usb.on('attach', function(dev){
   console.log('Device attach');
+
+  if (isSMTTesting && !seeker) {
+     seeker = new t2.discover.TesselSeeker().start();
+  }
 
   dev.on('detach', function() {
     console.log('Device detach');
@@ -148,43 +239,9 @@ rig_usb.on('attach', function(dev){
     dev.ready_led(false);
     dev.testing_led(true);
     running = true;
+    dev.unitUnderTest = null;
 
     var ps = child_process.spawn('python', ['-u', 'tests/tests.py', dev.serialNumber])
-    function parseData(data){
-      console.log("parseData", data);
-      // check if the data has a status code
-      if (data.data && LOG_NUMBERS.indexOf(Number(data.data.status)) >= 0) {
-        console.log("updating device status", data);
-        updateDeviceStatus(data);
-      }
-      reportLog(data, true);
-    }
-
-    function escapeData(data, eachFunc) {
-      if (!data || /^\s*$/.test(data)) return;
-
-      fixedData = data.toString().escapeSpecialChars();
-      fixedData = fixedData.split(/\}\s*\t*\{/);
-      console.log("data", fixedData);
-      var fixJSON = fixedData.length > 1 ? true : false;
-      fixedData.forEach(function(d, i){
-        if (fixJSON) {
-          // for the first obj we need to add a '}', middle ones add a '{}', end one add a '{'
-          if (i == 0){
-            d = d+'}';
-          } else if (i == (fixedData.length - 1)) {
-            d = '{'+d;
-          } else {
-            d = '{'+d+'}';
-          }
-        }
-        console.log(i, d);
-
-        if (eachFunc && typeof(eachFunc) == 'function') {
-          eachFunc(d, i);
-        }
-      });
-    }
 
     // pipe data up to testaltor
     ps.stdout.on('data', function (data) {
@@ -196,7 +253,10 @@ rig_usb.on('attach', function(dev){
           throw e;
         }
         parseData(d);
+
+        if (d.serialNumber) dev.unitUnderTest = d.device;
       });
+
     });
 
     ps.stderr.on('data', function (data) {
@@ -218,20 +278,56 @@ rig_usb.on('attach', function(dev){
       emitNote(item);
     });
 
-    ps.on('close', function(code) {
-      console.log("Child exited with code", code)
-      dev.testing_led(false);
-      if (code == 0) {
+    function doneWithTest(passed){
+      if (DEBUG) console.log("done with test", passed);
+      if (passed) {
         dev.pass_led(true);
-        // successfully tested
-        console.log("passed");
-        deviceFinished(dev.serialNumber, true);
       } else {
         dev.fail_led(true);
-        deviceFinished(dev.serialNumber, false);
       }
+      deviceFinished(dev.serialNumber, passed);
+      dev.uut_power(0);
       dev.ready_led(true);
       running = false;
+    }
+
+    ps.on('close', function(code) {
+      if (DEBUG) console.log("Child exited with code", code)
+      dev.testing_led(false);
+      if (code == 0) {
+        var deviceStatus = {device: dev.unitUnderTest, serialNumber: dev.serialNumber, test: 'Wifi'}
+        deviceStatus.data = {status: 0};
+        updateDeviceStatus(deviceStatus);
+        
+        // successfully tested
+        if (DEBUG) console.log("passed python tests");
+        
+        if (dev.unitUnderTest) {
+          // do the wifi test now
+          runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
+            deviceStatus.data = err ? err : "wifi passed";
+            if (err) {
+              emitNote({serialNumber: dev.unitUnderTest, data: err});
+            }
+            // emit up
+            reportLog(deviceStatus, false);
+            deviceStatus.data = {status: err ? -1 : 1};
+            updateDeviceStatus(deviceStatus);
+
+            if (DEBUG) console.log("wifi tests done", deviceStatus);
+
+            doneWithTest(err ? false : true);
+          });
+        } else {
+          if (DEBUG) console.log("dev.unitUnderTest is null", dev.unitUnderTest);
+          // emit wifi test fail
+          deviceStatus.data = {status : -1}
+          updateDeviceStatus(deviceStatus);
+          doneWithTest(false);
+        }
+      } else {
+        doneWithTest(false);
+      }
     });
   })
 
@@ -320,30 +416,9 @@ function checkBuild() {
   });
 }
 
-function checkClientBuild() {
-  request(configs.host.server + "/client", function (err, res, version) {
-    if (configs.version != version) {
-
-      var newConfigs = JSON.stringify({name: configs.host.name, server: configs.host.server, version: configs.version, updateVersion: version});
-      // write the updateVersion key
-      fs.writeFile(path.join(__dirname, "./config.json"), newConfigs, function(err){
-        if (err) {
-          emitMessage("Could not finish checking client build", true);
-          throw err;
-        }
-
-        // flash message that the system needs a reboot to update client code
-        emitMessage("This test rig is outdated. Reboot to update.", true);
-      });
-    }
-  });
-}
-
 setInterval(function(){
   heartbeat();
-  checkBuild();
 }, 1000*5*60);
-// }, 1000*5*60); // every 5 min check
 
 configs.tests = require(path.join(__dirname, '../config.json')).tests;
 try {
@@ -369,15 +444,9 @@ try {
   });
 }
 
-var seekerAttached = false;
 io.sockets.on('connection', function (client) {
-  if (!seekerAttached) {
-    seekerAttached = true;
-    var seeker = new t2.discover.TesselSeeker().start();
-    var verifyFile = fs.readFileSync('./deadbeef.hex');
-    var usbOpts = {filePath: '/dev/sda', bytes:84, verify: verifyFile}
-
-    var ethOpts = {}
+  if (!seeker) {
+    seeker = new t2.discover.TesselSeeker().start();
 
     seeker.on('usbConnection', function(tessel){
       if (isSMTTesting) return;
@@ -386,15 +455,17 @@ io.sockets.on('connection', function (client) {
       // console.log("usb connected", tessel.connection.serialNumber, tessel.name);
       io.sockets.emit("addTesselUSB", sanitizedTessel);
       // io.sockets.emit("addTesselUSB", sanitizeTessel(tessel));
-      io.sockets.emit("updateThTest", {test: 'name', 'tessel': sanitizedTessel, 'status': 0});
 
+      reportLog({device: sanitizedTessel.serialNumber, data: "Connected over USB"}, false);
+      updateDeviceStatus({test: 'name', tessel: sanitizedTessel, status: 0}, true);
     });
 
     seeker.on('tessel', function(tessel) {
       if (isSMTTesting) return;
       var sanitizedTessel = sanitizeTessel(tessel);
+      var tesselData = {test: 'name', tessel: sanitizedTessel, status: 1, info: sanitizedTessel.name};
       if (tessel.connection.connectionType == 'USB') {
-        io.sockets.emit("updateThTest", {test: 'name', 'tessel': sanitizedTessel, 'status': 1});
+        updateDeviceStatus(tesselData, true);
 
         tessel.setRedLED(0);
         tessel.setGreenLED(0);
@@ -402,16 +473,25 @@ io.sockets.on('connection', function (client) {
 
         console.log("starting usb & ethernet tests on", sanitizedTessel);
         // now we can start ethernet and usb tests
-        throughHoleTest(usbOpts, ethOpts, tessel)
+        throughHoleTest(USB_OPTS, ETH_OPTS, tessel)
         .then(function(){
           // all passed
-          io.sockets.emit("updateThTest", {test: 'all', 'tessel': sanitizedTessel, 'status': 1});
+          tesselData.test = 'all';
+          
+          reportLog({device: sanitizedTessel.serialNumber, data: "All through hole tests passed"}, false);
+          updateDeviceStatus(tesselData, true);
+
         })
         .catch(function(err){
+          // throw err;
           console.log("th err", err);
           tessel.setRedLED(1);
+          tesselData.test = 'all';
+          tesselData.status = -1;
+          updateDeviceStatus(tesselData, true);
+          reportLog({device: sanitizedTessel.serialNumber, data: "Through hole tests failed on error "+err}, false);
+          emitNote({serialNumber: sanitizedTessel.serialNumber, data: err.toString()});
 
-          io.sockets.emit("updateThTest", {test: 'all', 'tessel': sanitizedTessel, 'status': -1});
         })
       }
     });
@@ -419,7 +499,6 @@ io.sockets.on('connection', function (client) {
     seeker.on('detach', function (tessel){
       if (isSMTTesting) return;
       io.sockets.emit("removeTesselUSB", sanitizeTessel(tessel));
-
     });
   }
   client.on('smt', function(data) {
@@ -433,29 +512,58 @@ function sanitizeTessel(tessel){
 }
 
 function throughHoleTest(usbOpts, ethOpts, selectedTessel){
-  var sanitizedTessel = sanitizeTessel(selectedTessel);
+  return new Promise(function(resolve, reject) {
+    var sanitizedTessel = sanitizeTessel(selectedTessel);
+    var tesselData = {test: 'usb', 'tessel': sanitizedTessel, 'status': 0};
+    updateDeviceStatus(tesselData, true);
 
-  return t2.Tessel.runUSBTest(usbOpts, selectedTessel)
-  .then(function(){
-    console.log("usb test passed");
-    tessel.setGreenLED(1);
-    io.sockets.emit("updateThTest", {test: 'usb1', 'tessel': sanitizedTessel, 'status': 1});
-  }).then(function(){
-    t2.Tessel.runEthernetTest(ethOpts, selectedTessel)
+    return t2.Tessel.runUSBTest(usbOpts, selectedTessel)
     .then(function(){
-      tessel.setBlueLED(1);
+      console.log("usb test passed");
+      selectedTessel.setGreenLED(1);
+      tesselData.status = 1;
 
-      console.log("ethernet test passed");
-      io.sockets.emit("updateThTest", {test: 'eth', 'tessel': sanitizedTessel, 'status': 1});
+      reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, false);
+      updateDeviceStatus(tesselData, true);
+
+      console.log("running ethernet test");
+
+      tesselData.test = 'eth';
+      tesselData.status = 0;
+      updateDeviceStatus(tesselData, true);
+
+      // first wipe the old wifi credentials
+      return t2.Tessel.runEthernetTest(ethOpts, selectedTessel)
+      .then(function(){
+
+        selectedTessel.setBlueLED(1);
+
+        console.log("ethernet test passed");
+        tesselData.status = 1;
+        reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, false);
+        updateDeviceStatus(tesselData, true);
+
+        resolve();
+      })
+      .catch(function(err){
+        console.log("ethernet test failed", err);
+
+        tesselData.status = -1;
+        reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests failed "+err}, false);
+        updateDeviceStatus(tesselData, true);
+        reject(err);
+      });
     })
     .catch(function(err){
-      throw err;
-    });
-  })
-  .catch(function(err){
-    // usb test failed
-    throw err;
-  })
+      console.log("usb test failed", err);
+      tesselData.status = -1;
+      reportLog({device: sanitizedTessel.serialNumber, data: "USB tests failed "+err}, false);
+      updateDeviceStatus(tesselData, true);
+
+      // usb test failed
+      reject(err);
+    })
+  });
 }
 
 server.listen(app.get('port'), function() {
