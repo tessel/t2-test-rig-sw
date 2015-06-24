@@ -131,7 +131,7 @@ def random_macs():
     return ([0x02, 0xa3] + uid, [0x02, 0xa4] + uid)
 
 if __name__ == '__main__':
-    dev = usb.core.find(idVendor=0x9999, idProduct=0xffff)
+    dev = usb.core.find(idVendor=0x1209, idProduct=0x7551)
     if dev is None:
         raise ValueError('Our device is not connected')
 

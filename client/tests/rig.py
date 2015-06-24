@@ -188,7 +188,7 @@ class TestRig(object):
         """Find the target SAMD21 on the USB bus and return the pyusb device"""
         if refresh or not self._uut_usb:
             for i in range(0, 50):
-                self._uut_usb = usb.core.find(idVendor = 0x9999, idProduct = 0xFFFF,
+                self._uut_usb = usb.core.find(idVendor = 0x1209, idProduct = 0x7551,
                     custom_match = serial_match(self.uut_serial))
                 if self._uut_usb:
                     break
@@ -201,6 +201,29 @@ class TestRig(object):
     def uut_flash(self):
         """Get an object with methods to manipulate the SPI flash"""
         return Flash(self.uut_usb())
+
+    def read_console(self, timeout=20):
+        """ Read from the serial console for the specified number of seconds.
+        Results are sent to stdout and returned as a string.
+        """
+        self.uut_usb().detach_kernel_driver(2)
+        intf = self.uut_usb().get_active_configuration()[(2,0)]
+        ep = intf[1]
+        start_time = time.time()
+        output = ""
+        while True:
+            remaining = timeout - (time.time() - start_time)
+
+            if remaining < 0:
+                break
+
+            try:
+                data = ep.read(64, timeout=int(remaining*1000)).tostring()
+            except usb.core.USBError:
+                continue
+            sys.stdout.write(data)
+            output += data
+        return output
 
     def uut_digital(self, pin, state):
         self.uut_usb().ctrl_transfer(0x40, 0x10, int(state), UUT_PINS[pin], '')
