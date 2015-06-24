@@ -1,5 +1,18 @@
 {
-	"tests":
-    ["SAM", "Flash", "BusVoltage", "TestPorts", "Overcurrent", "Wifi"], 
-    "builds": ["firmware", "boot", "openwrt-ramips-mt7620-Default-u-boot", "openwrt-ramips-mt7620-tessel-squashfs-sysupgrade"]
+  "tests": [
+    "SAM",
+    "Flash",
+    "Boot",
+    "BusVoltage",
+    "TestPorts",
+    "Overcurrent",
+    "Wifi"
+  ],
+  "builds": [
+    "firmware",
+    "boot",
+    "openwrt-ramips-mt7620-Default-u-boot",
+    "openwrt-ramips-mt7620-tessel-squashfs-sysupgrade"
+  ],
+  "client": "2c2043a883f19bea393e93c3313542e7297972af"
 }

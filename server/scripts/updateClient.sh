@@ -10,7 +10,7 @@ SCRIPTPATH=$(dirname "$SCRIPT")
 
 echo "Tarring up folder"
 # tar up everything except node modules & boot
-tar -cvz --exclude=client/node_modules --exclude=server --exclude=.git -f $SCRIPTPATH/../public/builds/client.tar.gz --directory=$SCRIPTPATH/../../ .
+tar -cvz --exclude=*.pyc --exclude=client/node_modules/usb/build/* --exclude=client/node_modules/t2-cli/node_modules/usb/build/*  --exclude=server --exclude=.git -f $SCRIPTPATH/../public/builds/client.tar.gz --directory=$SCRIPTPATH/../../ .
 
 # update build number
 echo "Updating client build"
