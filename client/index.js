@@ -37,7 +37,7 @@ var ETH_OPTS = {host: 'www.baidu.com'}
 var WIFI_OPTS = {'ssid': 'technicallyVPN',
  'password': 'scriptstick', 'host': 'www.baidu.com', 'timeout': 10}
 
-var io = require('socket.io').listen(server);
+var io = require('socket.io').listen(server, { log: false });
 io.set('transports', ['xhr-polling']);
 io.set('polling duration', 10);
 
@@ -125,7 +125,7 @@ function emitNote(data) {
 }
 
 function parseData(data){
-  console.log("parseData", data);
+  // console.log("parseData", data);
   // check if the data has a status code
   if (data.data && LOG_NUMBERS.indexOf(Number(data.data.status)) >= 0) {
     updateDeviceStatus(data);
@@ -138,7 +138,6 @@ function escapeData(data, eachFunc) {
 
   fixedData = data.toString().escapeSpecialChars();
   fixedData = fixedData.split(/\}\s*\t*\{/);
-  console.log("data", fixedData);
   var fixJSON = fixedData.length > 1 ? true : false;
   fixedData.forEach(function(d, i){
     if (fixJSON) {
@@ -151,7 +150,6 @@ function escapeData(data, eachFunc) {
         d = '{'+d+'}';
       }
     }
-    console.log(i, d);
 
     if (eachFunc && typeof(eachFunc) == 'function') {
       eachFunc(d, i);
@@ -161,7 +159,7 @@ function escapeData(data, eachFunc) {
 
 function runWifiTest(wifiOpts, serialNumber, cb){
   if (!seeker) cb && cb("No Tessel Seeker");
-  console.log("found tessel seeker");
+
   function startTest(tessel){
     t2.Tessel.runWifiTest(wifiOpts, tessel)
     .then(function(){
@@ -176,11 +174,8 @@ function runWifiTest(wifiOpts, serialNumber, cb){
   var deviceList = seeker.usbDeviceList;
 
   var notFoundDevice = deviceList.every(function(device){
-    console.log("finding device", device, serialNumber);
-
     // figure out which tessel to run the wifi test on
     if (device.connection.serialNumber == serialNumber) {
-      console.log("found the right tessel", serialNumber);
       startTest(device);
       return false; // break
     } else {
@@ -189,7 +184,6 @@ function runWifiTest(wifiOpts, serialNumber, cb){
     }
   });
 
-  console.log("notFoundDevice", notFoundDevice);
   if (notFoundDevice || deviceList.length == 0) {
     // if device isn't on the list, it may need more time to boot up
     // but error out for now
@@ -316,17 +310,18 @@ rig_usb.on('attach', function(dev){
         if (dev.unitUnderTest) {
           setTimeout(function(){
             runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
-              err = err.toString() + err.stack;
-              deviceStatus.data = err ? err : "wifi passed";
-              
               // emit up
               reportLog(deviceStatus, false);
               deviceStatus.data = {status: err ? -1 : 1};
               updateDeviceStatus(deviceStatus);
 
               if (err) {
+                err = err.toString() + err.stack;
                 emitNote({serialNumber: dev.serialNumber, data: err});
               }
+
+              deviceStatus.data = err ? err : "wifi passed";
+              
               if (DEBUG) console.log("wifi tests done", deviceStatus);
 
               doneWithTest(err ? false : true);
