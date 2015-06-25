@@ -311,7 +311,7 @@ rig_usb.on('attach', function(dev){
           setTimeout(function(){
             runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
               // emit up
-              reportLog(deviceStatus, false);
+              reportLog(deviceStatus, true);
               deviceStatus.data = {status: err ? -1 : 1};
               updateDeviceStatus(deviceStatus);
 
@@ -467,7 +467,7 @@ io.sockets.on('connection', function (client) {
       io.sockets.emit("addTesselUSB", sanitizedTessel);
       // io.sockets.emit("addTesselUSB", sanitizeTessel(tessel));
 
-      reportLog({device: sanitizedTessel.serialNumber, data: "Connected over USB"}, false);
+      reportLog({device: sanitizedTessel.serialNumber, data: "Connected over USB"}, true);
       updateDeviceStatus({test: 'name', tessel: sanitizedTessel, status: 0}, true);
     });
 
@@ -489,7 +489,7 @@ io.sockets.on('connection', function (client) {
           // all passed
           tesselData.test = 'all';
           
-          reportLog({device: sanitizedTessel.serialNumber, data: "All through hole tests passed"}, false);
+          reportLog({device: sanitizedTessel.serialNumber, data: "All through hole tests passed"}, true);
           updateDeviceStatus(tesselData, true);
 
         })
@@ -500,7 +500,7 @@ io.sockets.on('connection', function (client) {
           tesselData.test = 'all';
           tesselData.status = -1;
           updateDeviceStatus(tesselData, true);
-          reportLog({device: sanitizedTessel.serialNumber, data: "Through hole tests failed on error "+err}, false);
+          reportLog({device: sanitizedTessel.serialNumber, data: "Through hole tests failed on error "+err}, true);
           emitNote({serialNumber: sanitizedTessel.serialNumber, data: err.toString()});
 
         })
@@ -534,7 +534,7 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
       selectedTessel.setGreenLED(1);
       tesselData.status = 1;
 
-      reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, false);
+      reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, true);
       updateDeviceStatus(tesselData, true);
 
       console.log("running ethernet test");
@@ -551,7 +551,7 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
 
         console.log("ethernet test passed");
         tesselData.status = 1;
-        reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, false);
+        reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, true);
         updateDeviceStatus(tesselData, true);
 
         resolve();
@@ -560,7 +560,7 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
         console.log("ethernet test failed", err);
 
         tesselData.status = -1;
-        reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests failed "+err}, false);
+        reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests failed "+err}, true);
         updateDeviceStatus(tesselData, true);
         reject(err);
       });
@@ -568,7 +568,7 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
     .catch(function(err){
       console.log("usb test failed", err);
       tesselData.status = -1;
-      reportLog({device: sanitizedTessel.serialNumber, data: "USB tests failed "+err}, false);
+      reportLog({device: sanitizedTessel.serialNumber, data: "USB tests failed "+err}, true);
       updateDeviceStatus(tesselData, true);
 
       // usb test failed
