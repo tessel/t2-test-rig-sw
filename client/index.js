@@ -25,6 +25,7 @@ Object.keys(LOG_STATUS).forEach(function(status){
 var lockedTesting = false;
 var isSMTTesting = true; // by default does smt testing
 var seeker = null;
+var seekerStarted = false;
 
 var app = express();
 var http = require('http');
@@ -201,6 +202,14 @@ rig_usb.on('attach', function(dev){
   console.log('Device attach');
   isSMTTesting = true;
   
+  // seekerStarted = true;
+  if (!seeker) {
+    console.log("starting seeker");
+    seeker = new t2.discover.TesselSeeker().start(true); // do not claim device
+  // } else {
+    // seeker.start(true); // do not claim device
+  }
+
   dev.on('detach', function() {
     console.log('Device detach');
     io.sockets.emit("removeRig", parseRig(dev));
@@ -248,7 +257,7 @@ rig_usb.on('attach', function(dev){
           d = JSON.parse(d);
         } catch(e) {
           console.log("could not parse stderr", d);
-          throw e;
+          //throw e;
         }
         parseData(d);
 
@@ -265,7 +274,7 @@ rig_usb.on('attach', function(dev){
           d = JSON.parse(d);
         } catch(e) {
           console.log("could not parse stderr", d);
-          throw e;
+          //throw e;
         }
         note = note + '\n'+d.data;
         item = d;
@@ -289,19 +298,13 @@ rig_usb.on('attach', function(dev){
       dev.ready_led(true);
       running = false;
 
-      seeker.stop();
+      // seeker.stop();
+      // seekerStarted = false;
     }
 
     ps.on('close', function(code) {
       if (DEBUG) console.log("Child exited with code", code)
-
-      if (!seeker) {
-        console.log("starting seeker");
-        seeker = new t2.discover.TesselSeeker().start();
-      } else {
-        seeker.start();
-      }
-
+      
       if (code == 0) {
         var deviceStatus = {device: dev.unitUnderTest, serialNumber: dev.serialNumber, test: 'Wifi'}
         deviceStatus.data = {status: 0};
@@ -313,15 +316,17 @@ rig_usb.on('attach', function(dev){
         if (dev.unitUnderTest) {
           setTimeout(function(){
             runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
+              err = err.toString() + err.stack;
               deviceStatus.data = err ? err : "wifi passed";
-              if (err) {
-                emitNote({serialNumber: dev.unitUnderTest, data: err});
-              }
+              
               // emit up
               reportLog(deviceStatus, false);
               deviceStatus.data = {status: err ? -1 : 1};
               updateDeviceStatus(deviceStatus);
 
+              if (err) {
+                emitNote({serialNumber: dev.serialNumber, data: err});
+              }
               if (DEBUG) console.log("wifi tests done", deviceStatus);
 
               doneWithTest(err ? false : true);
@@ -329,10 +334,10 @@ rig_usb.on('attach', function(dev){
           }, 5*1000); // give 5 seconds to find any tessels
           // do the wifi test now
         } else {
-          if (DEBUG) console.log("dev.unitUnderTest is null", dev.unitUnderTest);
           // emit wifi test fail
           deviceStatus.data = {status : -1}
           updateDeviceStatus(deviceStatus);
+          emitNote({serialNumber: dev.serialNumber, data: "dev.unitUnderTest is null"});
           doneWithTest(false);
         }
       } else {
@@ -455,7 +460,7 @@ try {
 }
 
 io.sockets.on('connection', function (client) {
-  if (!seeker && !isSMTTesting) {
+  if (!seeker) {
     console.log("starting seeker for through hole testing");
     seeker = new t2.discover.TesselSeeker().start();
 
