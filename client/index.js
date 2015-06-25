@@ -12,8 +12,18 @@ var express = require("express")
   , Promise = require('bluebird')
   ;
 
-var DEBUG = true;
-configs.host = require(path.join(__dirname, configs.hostPath));
+var DEBUG = true; 
+
+// check if we have the live disk path
+var liveHostPath = "/lib/live/mount/medium/host.json";
+if (fs.existsSync(liveHostPath)){
+  configs.host = require(liveHostPath);
+} else {
+  // otherwise default host configs
+  configs.host = require(path.join(__dirname, configs.hostPath));
+}
+console.log("HOST IS", configs.host);
+
 var BUILD_PATH = configs.host.server+"builds/";
 var BUILDS = require(path.join(__dirname, '../config.json')).builds;
 var LOG_STATUS = {"inProgress": 0, "pass": 1, "fail": -1};
@@ -34,8 +44,8 @@ var server = http.createServer(app);
 var verifyFile = fs.readFileSync('./deadbeef.hex');
 var USB_OPTS = {bytes:84, verify: verifyFile}
 var ETH_OPTS = {host: 'www.baidu.com'}
-var WIFI_OPTS = {'ssid': 'technicallyVPN',
- 'password': 'scriptstick', 'host': 'www.baidu.com', 'timeout': 10}
+var WIFI_OPTS = {'ssid': configs.host.ssid,
+ 'password': configs.host.password, 'host': 'www.baidu.com', 'timeout': 10}
 
 var io = require('socket.io').listen(server, { log: false });
 io.set('transports', ['xhr-polling']);
