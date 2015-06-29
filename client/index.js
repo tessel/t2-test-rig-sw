@@ -136,15 +136,6 @@ function emitNote(data) {
   io.sockets.emit("addNote", {serialNumber: data.serialNumber, note: data.data});
 }
 
-function parseData(data){
-  // console.log("parseData", data);
-  // check if the data has a status code
-  if (data.data && LOG_NUMBERS.indexOf(Number(data.data.status)) >= 0) {
-    updateDeviceStatus(data);
-  }
-  reportLog(data, true);
-}
-
 function escapeData(data, eachFunc) {
   if (!data || /^\s*$/.test(data)) return;
 
@@ -253,8 +244,24 @@ rig_usb.on('attach', function(dev){
     dev.testing_led(true);
     running = true;
     dev.unitUnderTest = null;
+    dev.data = [];
 
     var ps = child_process.spawn('python', ['-u', 'tests/tests.py', dev.serialNumber])
+
+    function parseData(data){
+      // console.log("parseData", data);
+      // check if the data has a status code
+      if (data.data && LOG_NUMBERS.indexOf(Number(data.data.status)) >= 0) {
+        // concat all data
+        reportLog(dev.data, true);
+        updateDeviceStatus(data);
+        dev.data = [];
+      }
+
+      dev.data.push(data);
+      // reportLog(data, true);
+    }
+
 
     // pipe data up to testaltor
     ps.stdout.on('data', function (data) {
