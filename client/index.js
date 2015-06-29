@@ -43,9 +43,9 @@ var server = http.createServer(app);
 
 var verifyFile = fs.readFileSync('./deadbeef.hex');
 var USB_OPTS = {bytes:84, verify: verifyFile}
-var ETH_OPTS = {host: 'www.baidu.com'}
+var ETH_OPTS = {host: '192.168.0.1'}
 var WIFI_OPTS = {'ssid': configs.host.ssid,
- 'password': configs.host.password, 'host': 'www.baidu.com', 'timeout': 10}
+ 'password': configs.host.password, 'host': '192.168.0.1', 'timeout': 10}
 
 var io = require('socket.io').listen(server, { log: false });
 io.set('transports', ['xhr-polling']);
@@ -112,6 +112,8 @@ function updateDeviceStatus(data, isTh){
     "bench": configs.host.name, "time": new Date().getTime(), 
     "build": configs.host.build, "rig": data.serialNumber, 
     "test": data.test, "status": data.data ? data.data.status: data.status}, json: true});
+
+  // report log
 }
 
 function reportLog(data, isJSON){
