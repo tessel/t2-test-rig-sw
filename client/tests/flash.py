@@ -109,8 +109,8 @@ class Flash(object):
         t = time.time()
         write_addr = addr
         for i, p in enumerate(chunks(data, PAGE)):
-            if i % 32 == 0:
-                print("Write 0x{:08x} ({:3.0f}%)\r".format(addr, i*PAGE*100.0/ len(data)), end='')
+            # if i % 32 == 0:
+                # print("Write 0x{:08x} ({:3.0f}%)\r".format(addr, i*PAGE*100.0/ len(data)), end='')
             self.write_page(write_addr, map(ord, p))
             write_addr += PAGE
         self.wait_complete()

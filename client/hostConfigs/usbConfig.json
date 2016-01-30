@@ -1,6 +1,6 @@
 {
   "name": "host1",
   "vpn": "????",
-  "server": "http://localhost:8080/",
-  "build": "0"
+  "server": "http://testalator.tessel.io/",
+  "build": "2c2043a883f19bea393e93c3313542e7297972af"
 }

@@ -10,6 +10,8 @@ var LED_READY = 4;
 var LED_TESTING = 5;
 var LED_PASS = 6;
 var LED_FAIL = 7;
+var UUT_POWER_USB = 8;
+var UUT_POWER_VIN = 9;
 var REQ_INFO = 0x30;
 var REQ_INFO_VERSION = 0x0;
 
@@ -22,7 +24,7 @@ function Rig(dev) {
     try {
         this.usb.open();
     } catch (e) {
-        process.nextTick(function() { self.emit('error', e) });
+        return process.nextTick(function() { self.emit('error', e) });
     }
 
     this.usb.getStringDescriptor(this.usb.deviceDescriptor.iSerialNumber, function (error, data) {
@@ -103,6 +105,13 @@ Rig.prototype.pass_led = function(value, callback) {
 
 Rig.prototype.fail_led = function(value, callback) {
     this.digital(LED_FAIL, value, callback);
+}
+
+Rig.prototype.uut_power = function(isOn, callback) {
+    var self = this;
+    self.digital(UUT_POWER_USB, isOn ? 1 : 0, function(err){
+        self.digital(UUT_POWER_VIN, isOn ? 1: 0, callback);
+    });
 }
 
 exports.rigs = [];

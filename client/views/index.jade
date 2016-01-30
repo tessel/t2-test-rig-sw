@@ -5,6 +5,7 @@ block head
     $(function(){
       var STATUS_COLORS = {'In Progress': '#f08a24', 'Pass': '#43AC6A', 'Fail': '#f04124', 'Disabled': '#CACACA'};
       var TESTS = !{JSON.stringify(tests)};
+      TESTS.push('notes'); // add notes as an extra column
       function switchStatus(text, ele) {
         $(ele.children('.statusText')[0]).html(text);
         ele.css('background-color', STATUS_COLORS[text] ? STATUS_COLORS[text] : '');
@@ -29,7 +30,7 @@ block head
         console.log("adding note", data);
         var rig = data.serialNumber;
         var note = data.note;
-        $($('#'+rig+'-notes').children('.statusText')[0]).html(note);
+        $($('#'+rig+'-notes-status').children('.statusText')[0]).html(note);
       });
       socket.on('updateTest', function(data){
         console.log("update test received", data);
@@ -41,16 +42,16 @@ block head
         var rigEle = $("#"+rig);
         // check which test
         if (test == 'all') {
-          $("#"+rig+"-test-all").show();
+          // $("#"+rig+"-test-all").show();
           // tests all passed or failed
-          if (status) {
+          if (status == 1) {
             rigEle.css('background-color', STATUS_COLORS['Pass']);
           } else {
             rigEle.css('background-color', STATUS_COLORS['Fail']);
           }
         } else {
           // clear out note
-          $($('#'+rig+'-notes').children('.statusText')[0]).html('');
+          $($('#'+rig+'-notes-status').children('.statusText')[0]).html('');
           // change status to inprogress
             rigEle.css('background-color', STATUS_COLORS['In Progress']);
           // find the test, mark it as passed or failed
@@ -70,6 +71,7 @@ block head
           $(ele).css('background-color', '');
           $($(ele).find('.statusText')[0]).html('');
         });
+        rigEle.css('background-color', '');
       }
       socket.on('addRig', function(rig){
         var rigEle = $('#'+rig.serialNumber);
@@ -87,11 +89,11 @@ block head
           TESTS.forEach(function(test){
             rigEle.append($('<td>').addClass("testingStatus "+rig.serialNumber+"-status").attr("id", rig.serialNumber+"-"+test+"-status")
               .append($("<div>").addClass("statusText"))
-              .append($("<div>").addClass("button test retry").attr("rig", rig.serialNumber).attr("test", test).text("Test"))
+              // .append($("<div>").addClass("button test retry").attr("rig", rig.serialNumber).attr("test", test).text("Test"))
             );
           });
-          rigEle.append($('<td>').attr('id', rig.serialNumber+'-notes').append($('<div>').addClass("statusText")));
-          $('#tableBody').append(rigEle);
+          // rigEle.append($('<td>').attr('id', rig.serialNumber+'-notes').addClass("testingStatus").append($('<div>').addClass("statusText")));
+          $('#smtBody').append(rigEle);
         }
       });
       socket.on('startTest', function(serial){
@@ -104,12 +106,57 @@ block head
         // gray it out
         rigEle.css('background-color', STATUS_COLORS['Disabled']);
       });
-      socket.on('done', function(data){
-        // tests are finished
-        // show test button
-        $('#'+data.rig+'-test-all').removeClass('disabled');
+      $('#js_smt').on('click', function(){
+        // is on smt test
+        socket.emit('smt', true);
       });
+      $('#js_th').on('click', function(){
+        // is on through hole test
+        socket.emit('smt', false);
+      });
+      socket.on('addTesselUSB', function(data){
+        console.log('added tessel usb');
+        var thTests = ['name', 'usb', 'eth', 'notes'];
+        // add to the row of tessel devices
+        var tesselEle = $('<tr>')
+        .attr("id", data.serialNumber)
+        .append($('<td>').html(data.serialNumber));
+        thTests.forEach(function(test){
+          tesselEle.append($('<td>').addClass('testingStatus').attr('id', data.serialNumber+'-'+test+'-status').append($('<div>').addClass('statusText')))
+        });
+        console.log("tessel ele", tesselEle);
+        $('#thBody').append(tesselEle);
+      });
+      socket.on('removeTesselUSB', function(data){
+        // remove that tessel element
+        $('#'+data.serialNumber).remove();
+      });
+      socket.on('updateThTest', function(data){
+        console.log("updating th test", data);
+        var test = data.test;
+        var tessel = data.tessel.serialNumber;
+        var tesselEle = $('#'+tessel);
+        var status = data.status;
+        if (test == 'all') {
+          // everything passed
+          if (status == 1) {
+            tesselEle.css('background-color', STATUS_COLORS['Pass']);
+          } else {
+            tesselEle.css('background-color', STATUS_COLORS['Fail']);
+          }
+        } else {
+          // clear out note
+          $($('#'+tessel+'-notes-status').children('.statusText')[0]).html('');
+          if (status == 1) {
+            switchStatus("Pass", $("#"+tessel+"-"+test+"-status"));
+          } else if (status < 0) {
+            switchStatus("Fail", $("#"+tessel+"-"+test+"-status"));
+          } else if (status == 0) {
+            switchStatus("In Progress", $("#"+tessel+"-"+test+"-status"));
+          }
+        }
 
+      })
     })
 
 block content
@@ -136,26 +183,57 @@ block content
   
   p
 
-  table
-    thead
-      tr
-        th Rig
-        th Build
-        th Device
-        each test in tests
-          th #{test}
-        th Notes
-    tbody#tableBody
-        each rig in rigs
-          tr(id="#{rig.serialNumber}")
-            td 
-              | #{rig.serialNumber} 
-            td
-              | #{rig.build}
-            td(id="#{rig.serialNumber}-device")
-              | #{rig.device}
-            each test in tests
-              td.testingStatus(class="#{rig.serialNumber}-status", id="#{rig.serialNumber}-#{test}-status")
-                .div.statusText
-            td(id="#{rig.serialNumber}-notes")
-              .div.statusText
+  .section-container.tabs(data-section="tabs")
+    section.active
+      p.title(data-section-title)#js_smt
+        a(href="#") Programming & SMT
+      .content(data-section-content)
+        table
+          thead
+            tr
+              th Rig
+              th Build
+              th Device
+              each test in tests
+                th #{test}
+              th Notes
+          tbody#smtBody
+              each rig in rigs
+                tr(id="#{rig.serialNumber}")
+                  td 
+                    | #{rig.serialNumber} 
+                  td
+                    | #{rig.build}
+                  td(id="#{rig.serialNumber}-device")
+                    | #{rig.device}
+                  each test in tests
+                    td.testingStatus(class="#{rig.serialNumber}-status", id="#{rig.serialNumber}-#{test}-status")
+                      .div.statusText
+                  td.testingStatus(id="#{rig.serialNumber}-notes-status")
+                    .div.statusText
+    section
+      p.title(data-section-title)#js_th
+        a(href="#") Through Hole tests
+      .content(data-section-content)
+        table
+          thead
+            tr
+              th Device
+              th Name
+              th USB
+              th Ethernet
+              th Notes
+          tbody#thBody
+            each device in devices
+              tr(id="#{device.serialNumber}")
+                td
+                  | #{device.serialNumber}
+                td.testingStatus(id="#{device.serialNumber}-name-status")
+                  .div.statusText
+                td.testingStatus(id="#{device.serialNumber}-usb-status")
+                  .div.statusText
+                td.testingStatus(id="#{device.serialNumber}-eth-status")
+                  .div.statusText
+                td.testingStatus(id="#{device.serialNumber}-notes-status")
+                  .div.statusText
+
