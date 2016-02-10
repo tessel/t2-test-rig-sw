@@ -8,8 +8,8 @@ var express = require("express")
   , fs = require('fs')
   , crypto = require('crypto')
   , path = require('path')
-  , t2 = require('t2-cli')
-  , Promise = require('bluebird')
+  , tesselCLI = require('t2-cli')
+  , integrationTests = require('./tests/integration')
   ;
 
 var DEBUG = true;
@@ -43,9 +43,9 @@ var server = http.createServer(app);
 
 var verifyFile = fs.readFileSync('./tests/resources/deadbeef.hex');
 var USB_OPTS = {bytes:84, verify: verifyFile}
-var ETH_OPTS = {host: '192.168.0.1'}
+var ETH_OPTS = {host: configs.host.pingIP}
 var WIFI_OPTS = {'ssid': configs.host.ssid,
- 'password': configs.host.password, 'host': '192.168.0.1', 'timeout': 10}
+ 'password': configs.host.password, 'host': configs.host.pingIP, 'timeout': 10}
 
 var io = require('socket.io').listen(server, { log: false });
 io.set('transports', ['xhr-polling']);
@@ -161,38 +161,43 @@ function escapeData(data, eachFunc) {
 }
 
 function runWifiTest(wifiOpts, serialNumber, cb){
-  if (!seeker) cb && cb("No Tessel Seeker");
 
   function startTest(tessel){
-    t2.Tessel.runWifiTest(wifiOpts, tessel)
-    .then(function(){
-      console.log("passed wifi testing");
-      cb && cb(null);
-    })
-    .catch(function(err){
-      console.log("failed wifi testing", err);
-      cb && cb(err);
-    })
+    tessel.connection.open()
+    .then(() => integrationTests.wifiTest(wifiOpts, tessel))
+    .then(() => tessel.connection.end())
+    .then(() => console.log('finised closing'))
+    .then(cb)
+    .catch(cb);
   }
-  var deviceList = seeker.usbDeviceList;
 
-  var notFoundDevice = deviceList.every(function(device){
-    // figure out which tessel to run the wifi test on
-    if (device.connection.serialNumber == serialNumber) {
-      startTest(device);
-      return false; // break
-    } else {
-      // keep going
-      return true;
+  tesselCLI.list({timeout: 1, verbose: false, usb: true})
+  .then((tessels) => {
+    console.log('checking for match');
+    var notFound = tessels.every(function(device){
+      // figure out which tessel to run the wifi test on
+      if (device.connection.serialNumber === serialNumber) {
+        console.log('found it!');
+        startTest(device, cb);
+        return false;
+      } else {
+        // keep going
+        return true;
+      }
+    });
+
+    if (notFound) {
+      cb && cb(`Tessel with ${serialNumber} not found among connected devices.`);
+    }
+  })
+  .catch((err) => {
+    if (err.toString() === 'No Tessels Found') {
+      cb && cb(`Not able to find ${serialNumber} because no Tessels are connected.`);
+    }
+    else {
+      cb && cb(`Unable to list connected Tessels: ${err} for serial number ${serialNumber}.`);
     }
   });
-
-  if (notFoundDevice || deviceList.length == 0) {
-    // if device isn't on the list, it may need more time to boot up
-    // but error out for now
-    console.log("did not find tessel for wifi test", serialNumber);
-    cb && cb("Did not found tessel with serial number", serialNumber);
-  }
 }
 
 rig_usb.on('attach', function(dev){
@@ -474,63 +479,58 @@ try {
 }
 
 io.sockets.on('connection', function (client) {
-  if (!seeker) {
-    console.log("starting seeker for through hole testing");
-    seeker = new t2.discover.TesselSeeker().start();
+  if (isSMTTesting) return;
+  console.log("starting discovery for through hole testing");
 
-    seeker.on('usbConnection', function(tessel){
-      if (isSMTTesting) return;
-      var sanitizedTessel = sanitizeTessel(tessel);
-      // got a usb connection to a tessel
-      // console.log("usb connected", tessel.connection.serialNumber, tessel.name);
-      io.sockets.emit("addTesselUSB", sanitizedTessel);
-      // io.sockets.emit("addTesselUSB", sanitizeTessel(tessel));
+  tesselCLI.list({timeout: 1, verbose: false, usb: true})
+  .then((tessels) => {
+    tessels.forEach((tessel) => {
+      // Grab data the logs are looking for
+      var tesselLogData = sanitizeTessel(tessel);
+      var tesselData = {test: 'name', tessel: tesselLogData, status: 1, info: tesselLogData.name};
+      // Emit that we have a connected Tessel
+      io.sockets.emit("addTesselUSB", tesselLogData);
+      // Update our own log on the testlator server
+      reportLog({device: tesselLogData.serialNumber, data: "Connected over USB"}, true);
+      // Update out through hole tests interface
+      updateDeviceStatus(tesselData, true);
 
-      reportLog({device: sanitizedTessel.serialNumber, data: "Connected over USB"}, true);
-      updateDeviceStatus({test: 'name', tessel: sanitizedTessel, status: 0}, true);
-    });
+      // tessel.setRedLED(0);
+      // tessel.setGreenLED(0);
+      // tessel.setBlueLED(0);
 
-    seeker.on('tessel', function(tessel) {
-      if (isSMTTesting) return;
-      var sanitizedTessel = sanitizeTessel(tessel);
-      var tesselData = {test: 'name', tessel: sanitizedTessel, status: 1, info: sanitizedTessel.name};
-      if (tessel.connection.connectionType == 'USB') {
+      console.log("starting usb & ethernet tests on", tesselLogData);
+
+      // now we can start ethernet and usb tests
+      throughHoleTest(USB_OPTS, ETH_OPTS, tessel)
+      .then(function(){
+        // all passed
+        tesselData.test = 'all';
+
+        reportLog({device: tesselLogData.serialNumber, data: "All through hole tests passed"}, true);
         updateDeviceStatus(tesselData, true);
 
-        tessel.setRedLED(0);
-        tessel.setGreenLED(0);
-        tessel.setBlueLED(0);
+      })
+      .catch(function(err){
+        // throw err;
+        console.log("th err", err, err.stack);
+        // tessel.setRedLED(1);
+        tesselData.test = 'all';
+        tesselData.status = -1;
+        updateDeviceStatus(tesselData, true);
+        reportLog({device: tesselLogData.serialNumber, data: "Through hole tests failed on error "+err}, true);
+        emitNote({serialNumber: tesselLogData.serialNumber, data: err.toString()});
 
-        console.log("starting usb & ethernet tests on", sanitizedTessel);
-        // now we can start ethernet and usb tests
-        throughHoleTest(USB_OPTS, ETH_OPTS, tessel)
-        .then(function(){
-          // all passed
-          tesselData.test = 'all';
+      })
 
-          reportLog({device: sanitizedTessel.serialNumber, data: "All through hole tests passed"}, true);
-          updateDeviceStatus(tesselData, true);
-
-        })
-        .catch(function(err){
-          // throw err;
-          console.log("th err", err, err.stack);
-          tessel.setRedLED(1);
-          tesselData.test = 'all';
-          tesselData.status = -1;
-          updateDeviceStatus(tesselData, true);
-          reportLog({device: sanitizedTessel.serialNumber, data: "Through hole tests failed on error "+err}, true);
-          emitNote({serialNumber: sanitizedTessel.serialNumber, data: err.toString()});
-
-        })
-      }
     });
+  });
 
-    seeker.on('detach', function (tessel){
-      if (isSMTTesting) return;
-      io.sockets.emit("removeTesselUSB", sanitizeTessel(tessel));
-    });
-  }
+    // seeker.on('detach', function (tessel){
+    //   if (isSMTTesting) return;
+    //   io.sockets.emit("removeTesselUSB", sanitizeTessel(tessel));
+    // });
+
   client.on('smt', function(data) {
     isSMTTesting = data;
     console.log("smt testing", isSMTTesting);
@@ -547,10 +547,11 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
     var tesselData = {test: 'usb', 'tessel': sanitizedTessel, 'status': 0};
     updateDeviceStatus(tesselData, true);
 
-    return t2.Tessel.runUSBTest(usbOpts, selectedTessel)
+    return selectedTessel.connection.open()
+    .then(() => integrationTests.usbTest(usbOpts, selectedTessel))
     .then(function(){
       console.log("usb test passed");
-      selectedTessel.setGreenLED(1);
+      // selectedTessel.setGreenLED(1);
       tesselData.status = 1;
 
       reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, true);
@@ -563,25 +564,27 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
       updateDeviceStatus(tesselData, true);
 
       // first wipe the old wifi credentials
-      return t2.Tessel.runEthernetTest(ethOpts, selectedTessel)
+      return integrationTests.ethernetTest(ethOpts, selectedTessel)
       .then(function(){
 
-        selectedTessel.setBlueLED(1);
+        // selectedTessel.setBlueLED(1);
 
-        console.log("ethernet test passed");
+        console.log("\n\nethernet test passed!!!");
         tesselData.status = 1;
         reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, true);
         updateDeviceStatus(tesselData, true);
 
-        resolve();
+        return selectedTessel.connection.end()
+        .then(resolve)
       })
       .catch(function(err){
-        console.log("ethernet test failed", err);
+        console.log("\n\nethernet test failed", err);
 
         tesselData.status = -1;
         reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests failed "+err}, true);
         updateDeviceStatus(tesselData, true);
-        reject(err);
+        return selectedTessel.connection.end()
+        .then(() => reject(err));
       });
     })
     .catch(function(err){
