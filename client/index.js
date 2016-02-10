@@ -12,7 +12,7 @@ var express = require("express")
   , Promise = require('bluebird')
   ;
 
-var DEBUG = true; 
+var DEBUG = true;
 
 // check if we have the live disk path
 var liveHostPath = "/lib/live/mount/medium/host.json";
@@ -41,7 +41,7 @@ var app = express();
 var http = require('http');
 var server = http.createServer(app);
 
-var verifyFile = fs.readFileSync('./deadbeef.hex');
+var verifyFile = fs.readFileSync('./tests/resources/deadbeef.hex');
 var USB_OPTS = {bytes:84, verify: verifyFile}
 var ETH_OPTS = {host: '192.168.0.1'}
 var WIFI_OPTS = {'ssid': configs.host.ssid,
@@ -62,7 +62,7 @@ app.use(express.methodOverride());
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use("/bin", express.static(path.join(__dirname, 'bin')));
-app.use(express.favicon('public/images/favicon.ico')); 
+app.use(express.favicon('public/images/favicon.ico'));
 
 app.get('/', function(req, res) {
   var rigs = rig_usb.rigs.map(function(r){
@@ -70,7 +70,7 @@ app.get('/', function(req, res) {
   });
 
   // get list of tessel connected devices:
-  res.render('index', {host: configs.host, rigs: rigs, 
+  res.render('index', {host: configs.host, rigs: rigs,
     tests: configs.tests, builds: configs.builds, devices: []})
 });
 
@@ -92,8 +92,8 @@ function postRigs(rigs) {
     return r.serialNumber
   });
 
-  request.post(configs.host.server+'bench', {body: {id: configs.host.name, 
-    time: new Date().getTime(), build: configs.host.build, ip: '0.0.0.0', 
+  request.post(configs.host.server+'bench', {body: {id: configs.host.name,
+    time: new Date().getTime(), build: configs.host.build, ip: '0.0.0.0',
     gateway:'0.0.0.0', ssh: '0.0.0.0', port:'2222', rigs: rigs}
     , json: true});
 }
@@ -108,9 +108,9 @@ function updateDeviceStatus(data, isTh){
     , test: data.test, deviceId: data.device, status: data.data.status});
   }
 
-  request.post(configs.host.server+'d/'+data.device+'/test', {"body": {"id": data.tessel ? data.tessel.serialNumber : data.device, 
-    "bench": configs.host.name, "time": new Date().getTime(), 
-    "build": configs.host.build, "rig": data.serialNumber, 
+  request.post(configs.host.server+'d/'+data.device+'/test', {"body": {"id": data.tessel ? data.tessel.serialNumber : data.device,
+    "bench": configs.host.name, "time": new Date().getTime(),
+    "build": configs.host.build, "rig": data.serialNumber,
     "test": data.test, "status": data.data ? data.data.status: data.status}, json: true});
 
   // report log
@@ -198,7 +198,7 @@ function runWifiTest(wifiOpts, serialNumber, cb){
 rig_usb.on('attach', function(dev){
   console.log('Device attach');
   isSMTTesting = true;
-  
+
   // seekerStarted = true;
   if (!seeker) {
     console.log("starting seeker");
@@ -317,15 +317,15 @@ rig_usb.on('attach', function(dev){
 
     ps.on('close', function(code) {
       if (DEBUG) console.log("Child exited with code", code)
-      
+
       if (code == 0) {
         var deviceStatus = {device: dev.unitUnderTest, serialNumber: dev.serialNumber, test: 'Wifi'}
         deviceStatus.data = {status: 0};
         updateDeviceStatus(deviceStatus);
-        
+
         // successfully tested
         if (DEBUG) console.log("passed python tests");
-        
+
         if (dev.unitUnderTest) {
           setTimeout(function(){
             runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
@@ -340,7 +340,7 @@ rig_usb.on('attach', function(dev){
               }
 
               deviceStatus.data = err ? err : "wifi passed";
-              
+
               if (DEBUG) console.log("wifi tests done", deviceStatus);
 
               doneWithTest(err ? false : true);
@@ -373,7 +373,7 @@ function heartbeat() {
     return r.serialNumber
   });
 
-  request.post(configs.host.server+'bench', {body: {id: configs.host.name, 
+  request.post(configs.host.server+'bench', {body: {id: configs.host.name,
     time: new Date().getTime(), build: configs.host.build, rigs: rigs}, json: true});
 }
 
@@ -411,13 +411,13 @@ function getBuilds(cb){
         callback();
       });
     });
-      
+
   }, function(err){
     if (err) return cb && cb(err);
     // write the builds.json file
     fs.writeFile(path.join(__dirname, './build.json'), JSON.stringify(buildsJSON, null, 2), function(err){
       // reload configs
-      configs.builds = require('./build.json');  
+      configs.builds = require('./build.json');
       emitMessage("Update finished.", false);
 
       cb && cb(err);
@@ -507,7 +507,7 @@ io.sockets.on('connection', function (client) {
         .then(function(){
           // all passed
           tesselData.test = 'all';
-          
+
           reportLog({device: sanitizedTessel.serialNumber, data: "All through hole tests passed"}, true);
           updateDeviceStatus(tesselData, true);
 
