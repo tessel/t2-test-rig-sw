@@ -12,6 +12,9 @@ var express = require("express")
   , integrationTests = require('./tests/integration')
   ;
 
+// Adds LED functionality to the Tessel class
+require('./tests/indication/ledFunctions').load(tesselCLI.Tessel, tesselCLI.commands);
+
 var DEBUG = true;
 
 // check if we have the live disk path
@@ -406,34 +409,40 @@ io.sockets.on('connection', function (client) {
       // Update out through hole tests interface
       updateDeviceStatus(tesselData, true);
 
-      // tessel.setRedLED(0);
-      // tessel.setGreenLED(0);
-      // tessel.setBlueLED(0);
+      return tessel.connection.open()
+      .then(()=> {
+        tessel.setRedLED(0)
+        .catch((err)=> console.log(' OKAY WHAT HAPPENED', err));
+        tessel.setGreenLED(0);
+        tessel.setBlueLED(0);
 
-      console.log("starting usb & ethernet tests on", tesselLogData);
+        console.log("starting usb & ethernet tests on", tesselLogData);
 
-      // now we can start ethernet and usb tests
-      throughHoleTest(USB_OPTS, ETH_OPTS, tessel)
-      .then(function(){
-        // all passed
-        tesselData.test = 'all';
+        // now we can start ethernet and usb tests
+        throughHoleTest(USB_OPTS, ETH_OPTS, tessel)
+        .then(function(){
+          // all passed
+          tesselData.test = 'all';
 
-        reportLog({device: tesselLogData.serialNumber, data: "All through hole tests passed"}, true);
-        updateDeviceStatus(tesselData, true);
+          reportLog({device: tesselLogData.serialNumber, data: "All through hole tests passed"}, true);
+          updateDeviceStatus(tesselData, true);
 
-      })
-      .catch(function(err){
-        // throw err;
-        console.log("th err", err, err.stack);
-        // tessel.setRedLED(1);
-        tesselData.test = 'all';
-        tesselData.status = -1;
-        updateDeviceStatus(tesselData, true);
-        reportLog({device: tesselLogData.serialNumber, data: "Through hole tests failed on error "+err}, true);
-        emitNote({serialNumber: tesselLogData.serialNumber, data: err.toString()});
+          tessel.connection.end();
 
-      })
+        })
+        .catch(function(err){
+          // throw err;
+          console.log("th err", err, err.stack);
+          tessel.setRedLED(1);
+          tesselData.test = 'all';
+          tesselData.status = -1;
+          updateDeviceStatus(tesselData, true);
+          reportLog({device: tesselLogData.serialNumber, data: "Through hole tests failed on error "+err}, true);
+          emitNote({serialNumber: tesselLogData.serialNumber, data: err.toString()});
 
+          tessel.connection.end();
+        });
+      });
     });
   });
 
@@ -458,11 +467,11 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
     var tesselData = {test: 'usb', 'tessel': sanitizedTessel, 'status': 0};
     updateDeviceStatus(tesselData, true);
 
-    return selectedTessel.connection.open()
-    .then(() => integrationTests.usbTest(usbOpts, selectedTessel))
+
+    integrationTests.usbTest(usbOpts, selectedTessel)
     .then(function(){
       console.log("usb test passed");
-      // selectedTessel.setGreenLED(1);
+      selectedTessel.setGreenLED(1);
       tesselData.status = 1;
 
       reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, true);
@@ -478,15 +487,14 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
       return integrationTests.ethernetTest(ethOpts, selectedTessel)
       .then(function(){
 
-        // selectedTessel.setBlueLED(1);
+        selectedTessel.setBlueLED(1);
 
         console.log("\n\nethernet test passed!!!");
         tesselData.status = 1;
         reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, true);
         updateDeviceStatus(tesselData, true);
 
-        return selectedTessel.connection.end()
-        .then(resolve)
+        return resolve();
       })
       .catch(function(err){
         console.log("\n\nethernet test failed", err);
@@ -494,8 +502,7 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
         tesselData.status = -1;
         reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests failed "+err}, true);
         updateDeviceStatus(tesselData, true);
-        return selectedTessel.connection.end()
-        .then(() => reject(err));
+        return reject(err);
       });
     })
     .catch(function(err){
