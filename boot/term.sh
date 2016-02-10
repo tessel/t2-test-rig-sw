@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
+SERVER=testalator.tessel.io
 # Import device specific settings like the port
 source /lib/live/mount/medium/config.sh
-SERVER=testalator.tessel.io
 
 killall xscreensaver || true
 
