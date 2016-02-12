@@ -10,6 +10,7 @@ var express = require("express")
   , path = require('path')
   , tesselCLI = require('t2-cli')
   , integrationTests = require('./tests/integration')
+  , discovery = require('./tests/discovery/usb_discovery');
   ;
 
 // Adds LED functionality to the Tessel class
@@ -37,8 +38,6 @@ Object.keys(LOG_STATUS).forEach(function(status){
 
 var lockedTesting = false;
 var isSMTTesting = true; // by default does smt testing
-var seeker = null;
-var seekerStarted = false;
 
 var app = express();
 var http = require('http');
@@ -169,51 +168,69 @@ function runWifiTest(wifiOpts, serialNumber, cb){
     tessel.connection.open()
     .then(() => integrationTests.wifiTest(wifiOpts, tessel))
     .then(() => tessel.connection.end())
-    .then(() => console.log('finised closing'))
     .then(cb)
     .catch(cb);
   }
 
-  tesselCLI.list({timeout: 1, verbose: false, usb: true})
-  .then((tessels) => {
-    console.log('checking for match');
-    var notFound = tessels.every(function(device){
-      // figure out which tessel to run the wifi test on
-      if (device.connection.serialNumber === serialNumber) {
-        console.log('found it!');
-        startTest(device, cb);
-        return false;
-      } else {
-        // keep going
-        return true;
-      }
-    });
+  var scanner = new discovery.Scanner();
 
-    if (notFound) {
-      cb && cb(`Tessel with ${serialNumber} not found among connected devices.`);
-    }
-  })
-  .catch((err) => {
-    if (err.toString() === 'No Tessels Found') {
-      cb && cb(`Not able to find ${serialNumber} because no Tessels are connected.`);
-    }
-    else {
-      cb && cb(`Unable to list connected Tessels: ${err} for serial number ${serialNumber}.`);
+  // Called when a device is connected (but not necessarily booted)
+  scanner.on('connection', (device) => {
+    // Update the UI to say it's booting
+    console.log('\n\nwe have a booting Tessel!\n\n', device.serialNumber);
+  });
+
+  // Called when we can open the device because it has finished booting
+  scanner.on('ready', (device) => {
+    if (device.serialNumber === serialNumber) {
+      // We then fetch a Tessel Object from the Tessel CLI that has been built
+      // with this USB Connection
+      tesselCLI.list({timeout: 1, verbose: false, usb: true, name:serialNumber})
+      .then((tessels) => {
+        if (tessels.length > 1) {
+          return cb && cb(new Error("Found multiple USB Tessels with the same serial number..."));
+        }
+
+        // Our Tessel should be the first and only
+        var tessel = tessels[0];
+
+        if (tessel.connection.serialNumber !== serialNumber) {
+          return cb && cb(new Error(`Somehow we fetched a Tessel with the incorrect serial number: ${serialNumber}`));
+        }
+
+        startTest(tessel, cb);
+      })
+      .catch((err) => {
+        if (err.toString() === 'No Tessels Found') {
+          cb && cb(`Not able to find ${serialNumber} because no Tessels are connected.`);
+        }
+        else {
+          cb && cb(`Unable to list connected Tessels: ${err} for serial number ${serialNumber}.`);
+        }
+      });
     }
   });
+
+  // Called when a device fails to boot (hopefully doesn't happen)
+  scanner.on('error', (error) => {
+
+    // If this is a boot up error
+    if (error instanceof discovery.BootFailedError) {
+      // Tailor the error message a bit
+      return cb && cb(new Error(`${serialNumber} failed to boot up.`));
+    }
+    // Otherwise, just fail the test with what was given
+    else {
+      return cb && cb(err);
+    }
+  });
+
+  scanner.start();
 }
 
 rig_usb.on('attach', function(dev){
   console.log('Device attach');
   isSMTTesting = true;
-
-  // seekerStarted = true;
-  if (!seeker) {
-    console.log("starting seeker");
-    seeker = new t2.discover.TesselSeeker().start(true); // do not claim device
-  // } else {
-    // seeker.start(true); // do not claim device
-  }
 
   dev.on('detach', function() {
     console.log('Device detach');
@@ -224,6 +241,7 @@ rig_usb.on('attach', function(dev){
   dev.on('ready', function() {
     console.log('Device with serial number', dev.serialNumber, 'is ready');
     dev.ready_led(true);
+    dev.testing_led(false);
     io.sockets.emit("addRig", parseRig(dev));
     postRigs(rig_usb.rigs);
   });
@@ -318,9 +336,6 @@ rig_usb.on('attach', function(dev){
       dev.testing_led(false);
       dev.ready_led(true);
       running = false;
-
-      // seeker.stop();
-      // seekerStarted = false;
     }
 
     ps.on('close', function(code) {
@@ -335,25 +350,23 @@ rig_usb.on('attach', function(dev){
         if (DEBUG) console.log("passed python tests");
 
         if (dev.unitUnderTest) {
-          setTimeout(function(){
-            runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
-              // emit up
-              reportLog(deviceStatus, true);
-              deviceStatus.data = {status: err ? -1 : 1};
-              updateDeviceStatus(deviceStatus);
+          runWifiTest(WIFI_OPTS, dev.unitUnderTest, function(err){
+            // emit up
+            reportLog(deviceStatus, true);
+            deviceStatus.data = {status: err ? -1 : 1};
+            updateDeviceStatus(deviceStatus);
 
-              if (err) {
-                err = err.toString() + err.stack;
-                emitNote({serialNumber: dev.serialNumber, data: err});
-              }
+            if (err) {
+              err = err.toString() + err.stack;
+              emitNote({serialNumber: dev.serialNumber, data: err});
+            }
 
-              deviceStatus.data = err ? err : "wifi passed";
+            deviceStatus.data = err ? err : "wifi passed";
 
-              if (DEBUG) console.log("wifi tests done", deviceStatus);
+            if (DEBUG) console.log("wifi tests done", deviceStatus);
 
-              doneWithTest(err ? false : true);
-            });
-          }, 5*1000); // give 5 seconds to find any tessels
+            doneWithTest(err ? false : true);
+          });
           // do the wifi test now
         } else {
           // emit wifi test fail
@@ -482,72 +495,123 @@ try {
 }
 
 io.sockets.on('connection', function (client) {
-  if (isSMTTesting) return;
-  console.log("starting discovery for through hole testing");
+  // Create a new scanner for USB Tessels
+  var scanner = new discovery.Scanner();
 
-  tesselCLI.list({timeout: 1, verbose: false, usb: true})
-  .then((tessels) => {
-    tessels.forEach((tessel) => {
-      // Grab data the logs are looking for
-      var tesselLogData = sanitizeTessel(tessel);
-      var tesselData = {test: 'name', tessel: tesselLogData, status: 1, info: tesselLogData.name};
-      // Emit that we have a connected Tessel
-      io.sockets.emit("addTesselUSB", tesselLogData);
-      // Update our own log on the testlator server
-      reportLog({device: tesselLogData.serialNumber, data: "Connected over USB"}, true);
-      // Update out through hole tests interface
+  // Called when a device is connected (but not necessarily booted)
+  scanner.on('connection', (device) => {
+    // Update the UI to say it's booting
+    console.log(`We have a booting Tessel: ${device.serialNumber}`);
+    var reportingData = {serialNumber: device.serialNumber}
+    // got a usb connection to a tessel
+    io.sockets.emit("addTesselUSB", reportingData);
+
+    reportLog({device: reportingData.serialNumber, data: "Connected over USB"}, true);
+    // We still need to go through the process of fetching our name (happens in ready event)
+    updateDeviceStatus({test: 'boot', tessel: reportingData, status: 0}, true);
+  });
+
+  // Called when we can open the device because it has finished booting
+  scanner.on('ready', (device) => {
+    // Boot was successful
+    updateDeviceStatus({test: 'boot', tessel: {serialNumber: device.serialNumber}, status: 1}, true);
+    // Create a USB Connection Wrapper
+    var usbConnection = new tesselCLI.USBConnection(device);
+    // Create a Tessel object
+    var tessel = new tesselCLI.Tessel(usbConnection);
+    return tessel.connection.open()
+    .then(Promise.all([tessel.setRedLED(0), tessel.setGreenLED(0), tessel.setBlueLED(0)]))
+    .then(() => nameTest(tessel))
+    .then(() => throughHoleTest(USB_OPTS, ETH_OPTS, tessel))
+    .then(() => {
+      var sanitizedTessel = sanitizeTessel(tessel);
+      // All of our tests passed
+      var tesselData = {test: 'all', tessel: sanitizedTessel, status: 1, info: sanitizedTessel.name};
+      // Update our servers
+      reportLog({device: sanitizedTessel.serialNumber, data: "All through hole tests passed"}, true);
+      // Update the testing dashboard
       updateDeviceStatus(tesselData, true);
+      // Close the Tessel Connection
+      tessel.connection.end();
+    })
+    .catch(function(err){
+      // throw err;
+      console.log("th err", err, err.stack);
+      var sanitizedTessel = sanitizeTessel(tessel);
+      var tesselData = {test: 'all', tessel: sanitizedTessel, status: -1, info: sanitizedTessel.name};
 
-      return tessel.connection.open()
-      .then(()=> {
-        tessel.setRedLED(0)
-        .catch((err)=> console.log(' OKAY WHAT HAPPENED', err));
-        tessel.setGreenLED(0);
-        tessel.setBlueLED(0);
+      updateDeviceStatus(tesselData, true);
+      reportLog({device: sanitizedTessel.serialNumber, data: "Through hole tests failed on error "+err}, true);
+      emitNote({serialNumber: sanitizedTessel.serialNumber, data: err.toString()});
 
-        console.log("starting usb & ethernet tests on", tesselLogData);
-
-        // now we can start ethernet and usb tests
-        throughHoleTest(USB_OPTS, ETH_OPTS, tessel)
-        .then(function(){
-          // all passed
-          tesselData.test = 'all';
-
-          reportLog({device: tesselLogData.serialNumber, data: "All through hole tests passed"}, true);
-          updateDeviceStatus(tesselData, true);
-
-          tessel.connection.end();
-
-        })
-        .catch(function(err){
-          // throw err;
-          console.log("th err", err, err.stack);
-          tessel.setRedLED(1);
-          tesselData.test = 'all';
-          tesselData.status = -1;
-          updateDeviceStatus(tesselData, true);
-          reportLog({device: tesselLogData.serialNumber, data: "Through hole tests failed on error "+err}, true);
-          emitNote({serialNumber: tesselLogData.serialNumber, data: err.toString()});
-
-          tessel.connection.end();
-        });
-      });
+      tessel.setRedLED(1)
+      .then(tessel.connection.end);
     });
   });
 
-    // seeker.on('detach', function (tessel){
-    //   if (isSMTTesting) return;
-    //   io.sockets.emit("removeTesselUSB", sanitizeTessel(tessel));
-    // });
+  // Called when a device fails to boot (hopefully doesn't happen)
+  scanner.on('error', (error) => {
+    // If this is a boot up error
+    if (error instanceof discovery.BootFailedError) {
+      // Tailor the error message a bit
+      // Note that this Tessel is still booting
+      var tessel = {serialNumber: error.serialNumber, name: 'unknown'};
+      emitNote({serialNumber: tessel.serialNumber, data: `${tessel.serialNumber} failed to boot up.`});
+      var tesselData = {test: 'all', tessel: tessel, status: -1, info: tessel.name};
 
+      updateDeviceStatus(tesselData, true);
+      reportLog({device: sanitizedTessel.serialNumber, data: "Through hole tests failed on error "+err}, true);
+    }
+    // Otherwise, just print out what was given
+    else {
+      console.error(error.toString());
+    }
+  });
+
+  scanner.on('disconnect', (device) => {
+    if (isSMTTesting) return;
+    io.sockets.emit("removeTesselUSB", {name: "Unknown", serialNumber: device.serialNumber});
+  });
+
+
+  // When the user selects the Through Hole tab of the web page
   client.on('smt', function(data) {
+    // We switch to through hole testing..
     isSMTTesting = data;
     console.log("smt testing", isSMTTesting);
+
+    // If we are doing through hole testing
+    if (!isSMTTesting) {
+      // Start our scanner
+      console.log('beginning through hole scanning');
+      scanner.start();
+    }
+    // Otherwise stop our scanner
+    else {
+      console.log('stopping through hole scanning');
+      scanner.stop();
+    }
   })
 });
 
 function sanitizeTessel(tessel){
   return {name: tessel.name, serialNumber: tessel.connection.serialNumber};
+}
+
+function nameTest(tessel) {
+  // Note on the web dashboard that we are beginning the name test
+  updateDeviceStatus({test: 'name', tessel: {serialNumber: tessel.connection.serialNumber}, status: 0}, true);
+  return tessel.getName()
+  .then(() => {
+    var sanitizedTessel = sanitizeTessel(tessel);
+    // Grab data the logs are looking for
+    var tesselData = {test: 'name', tessel: sanitizedTessel, status: 1, info: sanitizedTessel.name};
+    // Update our own log on the testlator server
+    reportLog({device: sanitizedTessel.serialNumber, data: "Connected over USB"}, true);
+    // Update out through hole tests interface
+    updateDeviceStatus(tesselData, true);
+    return Promise.resolve();
+  })
 }
 
 function throughHoleTest(usbOpts, ethOpts, selectedTessel){
