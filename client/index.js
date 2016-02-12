@@ -22,6 +22,7 @@ if (fs.existsSync(liveHostPath)){
   // otherwise default host configs
   configs.host = require(path.join(__dirname, configs.hostPath));
 }
+configs.tests = require(path.join(__dirname, '../config.json')).tests;
 console.log("HOST IS", configs.host);
 
 var BUILD_PATH = configs.host.server+"builds/";
@@ -36,6 +37,7 @@ var lockedTesting = false;
 var isSMTTesting = true; // by default does smt testing
 var seeker = null;
 var seekerStarted = false;
+var isDownloading = false;
 
 var app = express();
 var http = require('http');
@@ -377,103 +379,13 @@ function heartbeat() {
     time: new Date().getTime(), build: configs.host.build, rigs: rigs}, json: true});
 }
 
-function getBuilds(cb){
-  var buildsJSON = {};
-
-  emitMessage("Updating builds. Do not test until update is finished.", true);
-
-  async.forEachOf(BUILDS, function(build, i, callback){
-    var url = BUILD_PATH+build;
-    var binPath = path.join(__dirname, '/bin/'+build+".bin");
-
-    var binFile = fs.createWriteStream(binPath);
-    request.get(url+'.bin')
-    .on('error', function(err){
-      callback(err);
-    })
-    .on('response', function(res){
-      res.pipe(binFile)
-    });
-
-    binFile.on('finish', function(){
-      var buf = fs.readFileSync(binPath);
-      var md5 = crypto.createHash('md5')
-        .update(buf, 'utf8')
-        .digest('hex')
-
-      // check md5 sum
-      request(url+"/info", function(err, res, body){
-        body = JSON.parse(body);
-        if (md5 != body.md5sum) return callback(new Error("Md5sum of "+url+" did not match. Got: "+md5+", expected: "+body.md5sum));
-
-        buildsJSON[build] = {md5sum: body.md5sum, time: new Date().getTime(), build: body.build};
-
-        callback();
-      });
-    });
-
-  }, function(err){
-    if (err) return cb && cb(err);
-    // write the builds.json file
-    fs.writeFile(path.join(__dirname, './build.json'), JSON.stringify(buildsJSON, null, 2), function(err){
-      // reload configs
-      configs.builds = require('./build.json');
-      emitMessage("Update finished.", false);
-
-      cb && cb(err);
-    });
-  });
-}
-
-function checkBuild() {
-  if (DEBUG) console.log("checking builds");
-
-  // check all md5sums
-  async.forEachOf(BUILDS, function(build, i, callback){
-    request(BUILD_PATH+build+'/info', function(err, res, body) {
-      body = JSON.parse(body);
-      if (body.md5sum != configs.builds[build].md5sum) return callback("md5 does not match for "+build);
-
-      callback();
-    });
-  }, function(err){
-    if (err) {
-      getBuilds();
-    } else {
-      console.log("Builds all match");
-    }
-  });
-}
-
-setInterval(function(){
-  heartbeat();
-}, 1000*5*60);
-
-configs.tests = require(path.join(__dirname, '../config.json')).tests;
-try {
-  configs.builds = require(path.join(__dirname, './build.json'));
-
-  // make sure we have all the build.json files in the /bin dir
-  async.forEachOf(BUILDS, function(build, i, callback){
-    fs.exists(path.join(__dirname, '/bin/'+build+'.bin'), function(exists){
-      if (!exists) return callback("missing "+build);
-      callback();
-    })
-  }, function(err){
-    if (err) {
-      console.log(err, "updating builds");
-      getBuilds();
-    }
-  });
-} catch (e) {
-  console.log("No builds.json found, updating builds");
-  // we don't have a builds.json, we need to grab it
-  getBuilds(function(err){
-    if (err) throw err;
-  });
-}
-
 io.sockets.on('connection', function (client) {
+
+  if (isDownloading) {
+    emitMessage("Updating builds. Do not test until update is finished.", isDownloading);
+    return;
+  }
+
   if (!seeker) {
     console.log("starting seeker for through hole testing");
     seeker = new t2.discover.TesselSeeker().start();
@@ -596,6 +508,214 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
   });
 }
 
-server.listen(app.get('port'), function() {
-  console.log("Listening on " + app.get('port'));
-});
+/*
+ Resolves with a bool of whether new binaries need to be downloaded
+ Downloads new builds.json if missing
+ This is true if:
+ 1. the builds.json file is missing
+ 2. any of the binaries needed are missing
+ 3. the md5 sum in our builds.json does not match the md5 sum on the server for any build
+*/
+function checkForNewBuilds() {
+  return new Promise((resolve, reject) => {
+    var localBuildJSONPath = path.join(__dirname, './build.json');
+    // Check if the /bin folder already exists
+    fs.stat(localBuildJSONPath, (err, stats) => {
+      // If we had an error
+      if (err) {
+        // Check 1: does the builds.json file exist
+        if (err.code === 'ENOENT') {
+          console.log('CHECK 1: BUILDS.JSON DOESNT EXISTS!');
+          // Resolve with true so we update our binaries
+          fetchFreshBuildsJSON()
+          .then(() => resolve(true));
+        }
+        // Otherwise, it's an unexpected error
+        else {
+          return reject(err);
+        }
+      }
+      // The file exists
+      else {
+        // Save the JSON to a global var
+        configs.builds = require(path.join(__dirname, './build.json'));
+        // Check if our local binaries are the latest available
+        // (the other two checks)
+        return checkLocalBinaries()
+        // If they are, don't indicate we need to download them again
+        .then(() => resolve(false))
+        // If not, we will indicate that we need to download new ones
+        .catch(() => resolve(true));
+      }
+    });
+  });
+}
+
+/*
+  Ensures latest binaries exist and are installed. Rejects otherwise
+*/
+function checkLocalBinaries() {
+  return new Promise((resolve, reject) => {
+    // For each build we should have
+    async.forEachOf(BUILDS, function(build, i, callback){
+      // Check 2: does the binary file actually exist
+      fs.exists(path.join(__dirname, '/bin/'+build+'.bin'), function(exists){
+        // If not
+        if (!exists) {
+          // Return an error so we update
+          return callback(new Error("Binary is missing."));
+        }
+        // If we do have the binary
+        else {
+          // Fetch the latest build info from the server
+          request(BUILD_PATH+build+'/info', function(err, res, body) {
+            // Parse the info into JSON
+            body = JSON.parse(body);
+            // Check 3: Compare the MD5 sums to ensure they are the same file
+            if (body.md5sum != configs.builds[build].md5sum) {
+              // If not, return an error so we update
+              return callback(new Error("md5 does not match for "+build));
+            }
+            // The file locally is the same as the one on the server
+            else {
+              callback();
+            }
+          });
+        }
+      })
+    }, function(err){
+      if (err) {
+        return reject(err);
+      }
+      else {
+        return resolve();
+      }
+    });
+  });
+}
+
+/*
+  Downloads and write builds.json data to file
+*/
+function fetchFreshBuildsJSON() {
+  return new Promise((resolve, reject) => {
+    request.get(BUILD_PATH, (err, res, body) => {
+      try {
+        var res = JSON.parse(body);
+
+        fs.writeFile(path.join(__dirname, './build.json'), body, (err) => {
+          if (err) {
+            return reject(err);
+          }
+          else {
+            // save configs
+            configs.builds = res;
+            return resolve();
+          }
+        })
+      }
+      catch(err) {
+        return reject(err);
+      }
+    });
+  });
+}
+
+/*
+  Installs latest binaries AND builds.json
+*/
+function fetchFreshBuilds(buildsJSON){
+  isDownloading = true;
+
+  return new Promise((resolve, reject) => {
+    var buildsJSON = {};
+    var downloadPath = path.join(__dirname, '/bin');
+
+    // Check if the /bin folder already exists
+    fs.stat(downloadPath, (err, stats) => {
+      // If we had an error (like it doesn't exist)
+      if (err) {
+        // Check if it doesn't exist
+        if (err.code === 'ENOENT') {
+          // Create it
+          fs.mkdirSync(downloadPath);
+        }
+        // Otherwise, it's an unexpected error
+        else {
+          return reject(err);
+        }
+      }
+
+      async.forEachOf(BUILDS, function(build, i, callback){
+        var url = BUILD_PATH + build;
+        var binPath = path.join(__dirname, '/bin/'+build+".bin");
+
+        var binFile = fs.createWriteStream(binPath);
+        request.get(url+'.bin')
+        .on('error', reject)
+        .pipe(binFile);
+
+        binFile.on('finish', function(){
+          var buf = fs.readFileSync(binPath);
+          var md5 = crypto.createHash('md5')
+          .update(buf, 'utf8')
+          .digest('hex')
+
+          // check md5 sum
+          request(url+"/info", function(err, res, body){
+            body = JSON.parse(body);
+            var expectedMD5 = body.md5sum;
+            if (md5 != expectedMD5) {
+              return callback(new Error("Md5sum of "+url+" did not match. Got: "+md5+", expected: "+expectedMD5));
+            }
+            else {
+              buildsJSON[build] = {md5sum: expectedMD5, time: new Date().getTime(), build: body.build};
+
+              callback();
+            }
+          });
+        });
+      }, function(err){
+          if (err) return reject(err);
+          isDownloading = false;
+
+          // Overwrite our potentially out of date builds.JSON
+          fs.writeFile(path.join(__dirname, './build.json'), JSON.stringify(buildsJSON, null, 2), function(err){
+            // Update UI
+            emitMessage("Update finished! You may begin tests now.", isDownloading);
+            // Finish function
+            return resolve();
+          });
+        });
+      });
+    });
+}
+
+function initializeTestbenchServer() {
+  // First check if we need new binaries
+  // also ensure we have a builds.json
+  // so we can populate index.js (needs it for listing builds)
+  checkForNewBuilds()
+  .then((needNewBinaries) => {
+    // Start serving the page
+    server.listen(app.get('port'), function() {
+      console.log("Listening on " + app.get('port'));
+    });
+
+    // If we need to download binaries
+    if (needNewBinaries) {
+      // Do that now
+      return fetchFreshBuilds();
+    }
+  })
+  // Start reporting a heartbeat to testalator
+  .then(() => setInterval(heartbeat, 1000*5*60))
+  // Something went awry with initialization
+  .catch((err) => {
+    console.error("Unable to initialize test bench!!!!", err);
+    console.error("Please contact the Tessel Team Immediately: support@tessel.io");
+    process.exit(1);
+  });
+}
+
+initializeTestbenchServer();
