@@ -34,20 +34,18 @@ tar -xvzf client.tar.gz -C .;
 if [ -f client/start.sh ]; then
   exec bash client/start.sh
 else
-  cd client/node_modules/usb/;
-  npm install --build-from-source --verbose;
-
-  cd ../t2-cli/node_modules/usb;
-  npm install --build-from-source --verbose;
-
   # cd into the directory that we store the Node tarball
-  cd ~/client/node/;
+  cd ~/client/client/node/;
   # unzip the tarball
   tar -xf node-v4.2.1-linux-x86.tar.xz;
   # prepend the Node and NPM binary to our PATH
   PATH=$(pwd)/node-v4.2.1-linux-x86/bin:$PATH;
+  
+  # Rebuild usb for this architecture
+  cd ~/client/client/node_modules/usb/;
+  npm install --build-from-source --verbose;
 
+  # Start the test bench interface
   cd ~/client/client;
-  #npm install --verbose;
   node index.js;
 fi
