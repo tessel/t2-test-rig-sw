@@ -38,7 +38,7 @@ block head
         var rig = data.serialNumber;
         var device = data.deviceId;
         var test = data.test;
-        var status = data.status; 
+        var status = data.status;
         var rigEle = $("#"+rig);
         // check which test
         if (test == 'all') {
@@ -112,11 +112,12 @@ block head
       });
       $('#js_th').on('click', function(){
         // is on through hole test
+        console.log('yeah smt');
         socket.emit('smt', false);
       });
       socket.on('addTesselUSB', function(data){
         console.log('added tessel usb');
-        var thTests = ['name', 'usb', 'eth', 'notes'];
+        var thTests = ['boot', 'name', 'usb', 'eth', 'notes'];
         // add to the row of tessel devices
         var tesselEle = $('<tr>')
         .attr("id", data.serialNumber)
@@ -180,7 +181,7 @@ block content
               | #{val.build}
             td
               | #{val.time}
-  
+
   p
 
   .section-container.tabs(data-section="tabs")
@@ -200,8 +201,8 @@ block content
           tbody#smtBody
               each rig in rigs
                 tr(id="#{rig.serialNumber}")
-                  td 
-                    | #{rig.serialNumber} 
+                  td
+                    | #{rig.serialNumber}
                   td
                     | #{rig.build}
                   td(id="#{rig.serialNumber}-device")
@@ -219,6 +220,7 @@ block content
           thead
             tr
               th Device
+              th Boot
               th Name
               th USB
               th Ethernet
@@ -228,6 +230,8 @@ block content
               tr(id="#{device.serialNumber}")
                 td
                   | #{device.serialNumber}
+                td.testingStatus(id="#{device.serialNumber}-boot-status")
+                    .div.statusText
                 td.testingStatus(id="#{device.serialNumber}-name-status")
                   .div.statusText
                 td.testingStatus(id="#{device.serialNumber}-usb-status")
@@ -236,4 +240,3 @@ block content
                   .div.statusText
                 td.testingStatus(id="#{device.serialNumber}-notes-status")
                   .div.statusText
-
