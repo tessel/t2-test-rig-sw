@@ -3,7 +3,7 @@
   "password" : "PASSWORD_OF_TEST_ROUTER",
   "name" : "UNIQUE_NAME",
   "build": "DATE_OF_WHEN_WAS_THIS_UPDATED",
-  "server": "http://testalator.tessel.io",
+  "server": "testalator.tessel.io",
   "port": "PORT_NUM_ON_SERVER",
   "pingIP":"192.168.0.1"
 }
