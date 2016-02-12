@@ -1,9 +1,12 @@
 #!/bin/bash
 set -e
 
-SERVER=testalator.tessel.io
-# Import device specific settings like the port
-source /lib/live/mount/medium/config.sh
+# Save the path to our host json data
+HOST_PATH="/lib/live/mount/medium/host.json";
+# Parse the server url
+SERVER=$(node -pe 'JSON.parse(process.argv[1]).server' "$(cat "$HOST_PATH")")
+# Parse the port number
+PORT=$(node -pe 'JSON.parse(process.argv[1]).port' "$(cat "$HOST_PATH")")
 
 killall xscreensaver || true
 
