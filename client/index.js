@@ -187,7 +187,7 @@ function runWifiTest(wifiOpts, serialNumber, cb){
     if (device.serialNumber === serialNumber) {
       // We then fetch a Tessel Object from the Tessel CLI that has been built
       // with this USB Connection
-      tesselCLI.list({timeout: 1, verbose: false, usb: true, name:serialNumber})
+      tesselCLI.list({timeout: 1, output: false, usb: true, name:serialNumber})
       .then((tessels) => {
         if (tessels.length > 1) {
           return cb && cb(new Error("Found multiple USB Tessels with the same serial number..."));
