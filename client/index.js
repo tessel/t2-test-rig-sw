@@ -24,7 +24,7 @@ if (fs.existsSync(liveHostPath)){
   configs.host = require(liveHostPath);
 } else {
   // otherwise default host configs
-  configs.host = require(path.join(__dirname, configs.hostPath));
+  configs.host = require(path.join(__dirname, configs.devPath));
 }
 configs.tests = require(path.join(__dirname, '../config.json')).tests;
 console.log("HOST IS", configs.host);

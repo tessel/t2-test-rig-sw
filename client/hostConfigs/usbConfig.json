@@ -1,9 +1,0 @@
-{
-  "name": "host1",
-  "vpn": "????",
-  "server": "http://testalator.tessel.io/",
-  "build": "2c2043a883f19bea393e93c3313542e7297972af",
-  "ssid" : "XXXX",
-  "password" : "XXXX",
-  "pingIP" : "192.168.8.102"
-}
