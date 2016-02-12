@@ -38,12 +38,11 @@ else
   # prepend the Node and NPM binary to our PATH
   PATH=$(pwd)/node-v4.2.1-linux-x86/bin:$PATH;
   
+  # Rebuild usb for this architecture
   cd ~/client/client/node_modules/usb/;
   npm install --build-from-source --verbose;
 
-  cd ~/client/client/node_modules/t2-cli/node_modules/usb;
-  npm install --build-from-source --verbose;
-
+  # Start the test bench interface
   cd ~/client/client;
   node index.js;
 fi
