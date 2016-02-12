@@ -4,6 +4,7 @@
   "name" : "UNIQUE_NAME",
   "build": "DATE_OF_WHEN_WAS_THIS_UPDATED",
   "server": "testalator.tessel.io",
+  "protocol": "http://",
   "port": "PORT_NUM_ON_SERVER",
   "pingIP":"192.168.0.1"
 }
