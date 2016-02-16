@@ -226,7 +226,7 @@ function runWifiTest(wifiOpts, serialNumber, cb){
     }
     // Otherwise, just fail the test with what was given
     else {
-      return cb && cb(err);
+      return cb && cb(error);
     }
   });
 
