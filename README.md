@@ -5,6 +5,9 @@ Combination of the rig orchastration server & the client code that runs on each 
 git submodule update --init --recursive
 ```
 
+## Supported Platforms:
+Only Linux fully supports running the tests and OSX partially supports the test bench. The SMT tests use a `pyOCD` dependency which has some inaccessible features on OSX. Running the server and client will work on OSX, but the test bench will fail after SMT tests are commenced (specifically, on the 'boot' test). Through hole tests work fine on OSX. Windows has been untested.
+
 ## Updating production code
 
 A complete update of the test bench code consists of four parts: updating the release binaries (also known as golden images), updating the test bench, updating the boot scripts (in the `/boot` folder), and updating the `server` code running at `testalator.tessel.io`.
