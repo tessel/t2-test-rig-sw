@@ -10,6 +10,7 @@
     "request": "^2.57.0",
     "socket.io": "~0.9.14",
     "t2": "git://github.com/tessel/t2-cli.git#jon-rig-improvements",
+    "url-join": "0.0.1",
     "usb": "^1.0.6"
   },
   "engines": {

@@ -10,7 +10,8 @@ var express = require("express")
   , path = require('path')
   , tesselCLI = require('t2-cli')
   , integrationTests = require('./tests/integration')
-  , discovery = require('./tests/discovery/usb_discovery');
+  , discovery = require('./tests/discovery/usb_discovery')
+  , urljoin = require('url-join')
   ;
 
 // Adds LED functionality to the Tessel class
@@ -26,10 +27,12 @@ if (fs.existsSync(liveHostPath)){
   // otherwise default host configs
   configs.host = require(path.join(__dirname, configs.devPath));
 }
+
 configs.tests = require(path.join(__dirname, '../config.json')).tests;
 console.log("HOST IS", configs.host);
 
-var BUILD_PATH = configs.host.server+"builds/";
+var BUILD_SERVER = urljoin(configs.host.protocol, configs.host.server);
+var BUILD_PATH = urljoin(BUILD_SERVER, "builds");
 var BUILDS = require(path.join(__dirname, '../config.json')).builds;
 var LOG_STATUS = {"inProgress": 0, "pass": 1, "fail": -1};
 var LOG_NUMBERS = [];
@@ -96,7 +99,7 @@ function postRigs(rigs) {
     return r.serialNumber
   });
 
-  request.post(configs.host.server+'bench', {body: {id: configs.host.name,
+  request.post(urljoin(BUILD_SERVER, 'bench'), {body: {id: configs.host.name,
     time: new Date().getTime(), build: configs.host.build, ip: '0.0.0.0',
     gateway:'0.0.0.0', ssh: '0.0.0.0', port:'2222', rigs: rigs}
     , json: true});
@@ -112,7 +115,7 @@ function updateDeviceStatus(data, isTh){
     , test: data.test, deviceId: data.device, status: data.data.status});
   }
 
-  request.post(configs.host.server+'d/'+data.device+'/test', {"body": {"id": data.tessel ? data.tessel.serialNumber : data.device,
+  request.post(urljoin(BUILD_SERVER, 'd', data.device, 'test'), {"body": {"id": data.tessel ? data.tessel.serialNumber : data.device,
     "bench": configs.host.name, "time": new Date().getTime(),
     "build": configs.host.build, "rig": data.serialNumber,
     "test": data.test, "status": data.data ? data.data.status: data.status}, json: true});
@@ -121,7 +124,7 @@ function updateDeviceStatus(data, isTh){
 }
 
 function reportLog(data, isJSON){
-  request.post(configs.host.server+'logs', {body: { "identifiers":  {"device": data.device, "bench": configs.host.name, "rig": data.serialNumber}
+  request.post(urljoin(BUILD_SERVER, 'logs'), {body: { "identifiers":  {"device": data.device, "bench": configs.host.name, "rig": data.serialNumber}
     , "data": isJSON ? JSON.stringify(data) : data.toString()}, json: true});
 }
 
@@ -396,7 +399,7 @@ function heartbeat() {
     return r.serialNumber
   });
 
-  request.post(configs.host.server+'bench', {body: {id: configs.host.name,
+  request.post(urljoin(BUILD_SERVER, 'bench'), {body: {id: configs.host.name,
     time: new Date().getTime(), build: configs.host.build, rigs: rigs}, json: true});
 }
 
@@ -630,7 +633,7 @@ function checkLocalBinaries() {
     // For each build we should have
     async.forEachOf(BUILDS, function(build, i, callback){
       // Check 2: does the binary file actually exist
-      fs.exists(path.join(__dirname, '/bin/'+build+'.bin'), function(exists){
+      fs.exists(path.join(__dirname, 'bin', build + '.bin'), function(exists){
         // If not
         if (!exists) {
           // Return an error so we update
@@ -639,7 +642,7 @@ function checkLocalBinaries() {
         // If we do have the binary
         else {
           // Fetch the latest build info from the server
-          request(BUILD_PATH+build+'/info', function(err, res, body) {
+          request(urljoin(BUILD_PATH, build, 'info'), function(err, res, body) {
             // Parse the info into JSON
             body = JSON.parse(body);
             // Check 3: Compare the MD5 sums to ensure they are the same file
@@ -671,6 +674,9 @@ function checkLocalBinaries() {
 function fetchFreshBuildsJSON() {
   return new Promise((resolve, reject) => {
     request.get(BUILD_PATH, (err, res, body) => {
+      if (err) {
+        return reject(err);
+      }
       try {
         var res = JSON.parse(body);
 
@@ -718,8 +724,8 @@ function fetchFreshBuilds(buildsJSON){
       }
 
       async.forEachOf(BUILDS, function(build, i, callback){
-        var url = BUILD_PATH + build;
-        var binPath = path.join(__dirname, '/bin/'+build+".bin");
+        var url = urljoin(BUILD_PATH, build);
+        var binPath = path.join(__dirname, 'bin', build + ".bin");
 
         var binFile = fs.createWriteStream(binPath);
         request.get(url+'.bin')
@@ -733,7 +739,7 @@ function fetchFreshBuilds(buildsJSON){
           .digest('hex')
 
           // check md5 sum
-          request(url+"/info", function(err, res, body){
+          request(urljoin(url, "info"), function(err, res, body){
             body = JSON.parse(body);
             var expectedMD5 = body.md5sum;
             if (md5 != expectedMD5) {
