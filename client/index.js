@@ -276,7 +276,7 @@ rig_usb.on('attach', function(dev){
     dev.unitUnderTest = null;
     dev.data = [];
 
-    var ps = child_process.spawn('python', ['-u', 'tests/tests.py', dev.serialNumber])
+    var ps = child_process.spawn('python', ['-u', path.join(__dirname, 'tests/tests.py'), dev.serialNumber])
 
     function parseData(data){
       // console.log("parseData", data);
