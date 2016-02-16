@@ -47,8 +47,7 @@ var isDownloading = false;
 var app = express();
 var http = require('http');
 var server = http.createServer(app);
-
-var verifyFile = fs.readFileSync('./tests/resources/deadbeef.hex');
+var verifyFile = fs.readFileSync(path.join(__dirname, 'tests/resources/deadbeef.hex'));
 var USB_OPTS = {bytes:84, verify: verifyFile}
 var ETH_OPTS = {host: configs.host.pingIP}
 var WIFI_OPTS = {'ssid': configs.host.ssid,
