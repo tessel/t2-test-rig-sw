@@ -18,7 +18,7 @@ First, `scp` any new binaries to the public directory of the server:
 ```
 # Uploads a new samd21 firmware and OpenWRT firmware
 scp firmware.bin root@testalator.tessel.io:/home/testalator/t2-test-rig-sw/server/public/builds;
-scp openwrt-ramips-mt7620-tessel-squashfs-sysupgrade root@testalator.tessel.io:/home/testalator/t2-test-rig-sw/server/public/builds;
+scp openwrt-ramips-mt7620-tessel-squashfs-sysupgrade.bin root@testalator.tessel.io:/home/testalator/t2-test-rig-sw/server/public/builds;
 ```
 
 Second, run the script to generate a new builds.json file. This file is used to ensure the integrity
