@@ -27,6 +27,12 @@ of the builds downloaded at the manufacturer's testing site. Follow the prompts 
 ssh root@testalator.tessel.io node /home/testalator/t2-test-rig-sw/server/scripts/updateBuild.js
 ```
 
+Finally, you'll need to restart the server:
+```
+ssh root@testalator.tessel.io killall npm
+ssh root@testalator.tessel.io cd /home/testalator/t2-test-rig-sw/server; npm start;
+```
+
 ### Updating the testbench
 The testbench consists of the entire `\client` directory with the exception of any `node_modules` with binary dependencies (they will have to be re-installed on the machine). Updating the testbench consists of tarring up the `client` directory and sending it to the public builds repo of `testalator.tessel.io`. A build script will download this tarball when test running laptops at manufacturer's locations boot up.
 
