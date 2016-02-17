@@ -75,6 +75,18 @@ app.get('/', function(req, res) {
     return parseRig(r);
   });
 
+
+  // For each build in our builds list
+  Object.keys(configs.builds).forEach((key) => {
+    // Extract the value from the key
+    var build = configs.builds[key];
+    // If the release time is stored as a number
+    if (typeof build.time === 'number') {
+      // Convert it to a readable date for the UI
+      build.time = new Date(build.time);
+    }
+  });
+
   // get list of tessel connected devices:
   res.render('index', {host: configs.host, rigs: rigs,
     tests: configs.tests, builds: configs.builds, devices: []})
