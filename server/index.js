@@ -27,15 +27,13 @@ app.use(express.bodyParser());
 app.use(express.methodOverride());
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.favicon('public/favicon.ico')); 
+app.use(express.favicon('public/favicon.ico'));
 
 var mongojs = require('mongojs');
 var db = mongojs(process.env.DB || 'localhost');
 var Benches = db.collection('benches');
 var Devices = db.collection('devices');
 var Logs = db.collection('logs');
-
-var auth = express.basicAuth(process.env.AUTH_USER || "tessel", process.env.AUTH_PW || "password");
 
 // make sure we have builds, otherwise error out
 BUILDS.forEach(function(build){
@@ -44,7 +42,7 @@ BUILDS.forEach(function(build){
   })
 });
 
-app.get('/', auth, function(req, res) {
+app.get('/', function(req, res) {
   var benches = [];
   Benches.find(function (err, benches){
     if (DEBUG) console.log('names', benches);
@@ -63,7 +61,7 @@ app.get('/', auth, function(req, res) {
 
         if (count >= benches.length){
           if (DEBUG) console.log("benches", benches);
-          res.render('index', {title: 'Testalator | Technical Machine', 
+          res.render('index', {title: 'Testalator | Technical Machine',
               benches: benches});
         }
       });
@@ -84,18 +82,18 @@ function getDevices(query, cb){
     });
 }
 
-app.get('/b/:bench', auth, function(req, res){
+app.get('/b/:bench', function(req, res){
   var bench = req.params.bench;
   getDevices({'bench': bench}, function(devices, numSuccess){
-    res.render('bench', {title: bench+' | Testalator', type: 'bench', id: bench, 
+    res.render('bench', {title: bench+' | Testalator', type: 'bench', id: bench,
       devices: devices, tests: TESTS, success: numSuccess})
   });
 });
 
-app.get('/r/:rig', auth, function(req, res){
+app.get('/r/:rig', function(req, res){
   var rig = req.params.rig;
   getDevices({'rig': rig}, function(devices, numSuccess){
-    res.render('bench', {title: rig+' | Testalator', type: 'rig', id: rig, 
+    res.render('bench', {title: rig+' | Testalator', type: 'rig', id: rig,
       devices: devices, tests: TESTS, success: numSuccess})
   });
 });
@@ -135,11 +133,11 @@ app.post('/bench', function(req, res) {
     , upsert: true
   }, function(err, doc){
     if (!err) {
-      if (DEBUG) console.log('saved', benchHeartbeat);      
+      if (DEBUG) console.log('saved', benchHeartbeat);
       // emit heartbeat
       io.sockets.emit('bench_heartbeat', benchHeartbeat);
       res.send(true);
-    } else { 
+    } else {
       if (DEBUG) console.log("not saved", err, benchHeartbeat);
       res.send(false);
     }
@@ -163,17 +161,17 @@ app.post('/d/:device/test', function(req, res) {
     upsert:true
   }, function(err, doc) {
     if (!err) {
-      if (DEBUG) console.log('saved', doc);      
+      if (DEBUG) console.log('saved', doc);
       // emit heartbeat
       io.sockets.emit('device_update_'+id, {"test": test, "status": status});
       io.sockets.emit('device_update', {"id":id, "test": test, "status": status});
       res.send(true);
-    } else { 
+    } else {
       if (DEBUG) console.log("not saved", err, doc);
       res.send(false);
     }
   });
-  
+
 });
 
 function newLog(logQuery, data, cb) {
@@ -191,8 +189,8 @@ function newLog(logQuery, data, cb) {
       if (DEBUG) console.log('saved log', logQuery, data);
       io.sockets.emit('log_update_'+logQuery[key], data);
       cb(true);
-    } else { 
-      if (DEBUG) console.log("not saved", identifiers, err);      
+    } else {
+      if (DEBUG) console.log("not saved", identifiers, err);
       cb(false);
     }
   });
@@ -207,8 +205,8 @@ app.post('/logs', function(req, res){
     var key = identifiers[i];
     var obj = {};
     obj[key] = req.body.identifiers[key];
-    
-    newLog(obj, 
+
+    newLog(obj,
       req.body.data, function(logged){
       success = success & logged;
 
@@ -222,14 +220,14 @@ app.post('/logs', function(req, res){
   })();
 })
 
-app.get('/b/:bench/logs', auth, function (req, res){
+app.get('/b/:bench/logs', function (req, res){
   var bench = req.params.bench;
   Logs.findOne({'bench': bench}, function (err, logs) {
     res.render('logs', {title: bench+' | logs', logs: logs, id: bench, type:"Bench", tests: TESTS});
   });
 });
 
-app.get('/d/:device/logs', auth, function (req, res){
+app.get('/d/:device/logs', function (req, res){
   var device = req.params.device;
   Devices.find({"id": device}, function(err, docs){
     Logs.findOne({'device': device}, function (err, logs) {
@@ -238,7 +236,7 @@ app.get('/d/:device/logs', auth, function (req, res){
   });
 });
 
-app.get('/r/:rig/logs', auth, function (req, res){
+app.get('/r/:rig/logs', function (req, res){
   var rig = req.params.rig;
   Devices.find({"rig": rig}, function(err, docs){
     Logs.findOne({'rig': rig}, function (err, logs) {
@@ -247,7 +245,7 @@ app.get('/r/:rig/logs', auth, function (req, res){
   });
 });
 
-app.get('/logs', auth, function(req, res){
+app.get('/logs', function(req, res){
   var device = req.query.device;
   var test = req.query.test;
   // get the logs of a particular test for a device
