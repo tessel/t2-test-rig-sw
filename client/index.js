@@ -84,6 +84,16 @@ function parseRig(dev){
   return {serialNumber: dev.serialNumber, build: dev.build};
 }
 
+// Posts logs to the testalator server if it can, otherwise
+// just prints an error message to the console.
+function postLogsWithWarnIfError(url, message) {
+  request.post(url, message, (err, res, body) => {
+    if (err) {
+      console.warn("Warning: problem posting logs to testalator server:", err);
+    }
+  });
+}
+
 String.prototype.escapeSpecialChars = function() {
     return this.replace(/\n/g, "")
                .replace(/\&/g, "\\&")
@@ -98,7 +108,7 @@ function postRigs(rigs) {
     return r.serialNumber
   });
 
-  request.post(urljoin(BUILD_SERVER, 'bench'), {body: {id: configs.host.name,
+  postLogsWithWarnIfError(urljoin(BUILD_SERVER, 'bench'), {body: {id: configs.host.name,
     time: new Date().getTime(), build: configs.host.build, ip: '0.0.0.0',
     gateway:'0.0.0.0', ssh: '0.0.0.0', port:'2222', rigs: rigs}
     , json: true});
@@ -114,16 +124,14 @@ function updateDeviceStatus(data, isTh){
     , test: data.test, deviceId: data.device, status: data.data.status});
   }
 
-  request.post(urljoin(BUILD_SERVER, 'd', data.device, 'test'), {"body": {"id": data.tessel ? data.tessel.serialNumber : data.device,
+  postLogsWithWarnIfError(urljoin(BUILD_SERVER, 'd', data.device, 'test'), {"body": {"id": data.tessel ? data.tessel.serialNumber : data.device,
     "bench": configs.host.name, "time": new Date().getTime(),
     "build": configs.host.build, "rig": data.serialNumber,
     "test": data.test, "status": data.data ? data.data.status: data.status}, json: true});
-
-  // report log
 }
 
 function reportLog(data, isJSON){
-  request.post(urljoin(BUILD_SERVER, 'logs'), {body: { "identifiers":  {"device": data.device, "bench": configs.host.name, "rig": data.serialNumber}
+  postLogsWithWarnIfError(urljoin(BUILD_SERVER, 'logs'), {body: { "identifiers":  {"device": data.device, "bench": configs.host.name, "rig": data.serialNumber}
     , "data": isJSON ? JSON.stringify(data) : data.toString()}, json: true});
 }
 
@@ -398,7 +406,7 @@ function heartbeat() {
     return r.serialNumber
   });
 
-  request.post(urljoin(BUILD_SERVER, 'bench'), {body: {id: configs.host.name,
+  postLogsWithWarnIfError(urljoin(BUILD_SERVER, 'bench'), {body: {id: configs.host.name,
     time: new Date().getTime(), build: configs.host.build, rigs: rigs}, json: true});
 }
 
