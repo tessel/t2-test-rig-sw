@@ -147,7 +147,7 @@ Scanner.prototype.stop = function() {
   this.devices = [];
   // Stop listening for connects and disconnects
   usb.removeAllListeners('attach');
-  usb.removeAllListeners('detatch');
+  usb.removeAllListeners('detach');
   this.scanning = false;
 };
 

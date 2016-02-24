@@ -209,23 +209,32 @@ function runWifiTest(wifiOpts, serialNumber, cb){
     if (device.serialNumber === serialNumber) {
       // We then fetch a Tessel Object from the Tessel CLI that has been built
       // with this USB Connection
-      tesselCLI.list({timeout: 1, output: false, usb: true, name:serialNumber})
+      tesselCLI.list({timeout: 2, output: false, usb: true})
       .then((tessels) => {
-        if (tessels.length > 1) {
-          return cb && cb(new Error("Found multiple USB Tessels with the same serial number..."));
+        var tessel;
+        // Iterate through returned Tessels
+        tessels.forEach((possibleMatch) => {
+          // If this tessel's serial number matches the one we are looking for
+          if (possibleMatch.connection.serialNumber === serialNumber) {
+            // This is our Tessel
+            tessel = possibleMatch;
+          }
+        });
+
+        if (!tessel) {
+          throw new Error(`Tessel under test ${serialNumber} not discovered under available Tessels`);
         }
+        // Stop scanning for new devices
+        scanner.stop();
 
-        // Our Tessel should be the first and only
-        var tessel = tessels[0];
+        // Remove old listeners in case we have future events unrelated to this device
+        scanner.removeAllListeners();
 
-        if (tessel.connection.serialNumber !== serialNumber) {
-          return cb && cb(new Error(`Somehow we fetched a Tessel with the incorrect serial number: ${serialNumber}`));
-        }
-
+        // Start the wifi Test
         startTest(tessel, cb);
       })
       .catch((err) => {
-        if (err.toString() === 'No Tessels Found') {
+        if (err.toString().includes('No Tessels Found.')) {
           cb && cb(`Not able to find ${serialNumber} because no Tessels are connected.`);
         }
         else {
