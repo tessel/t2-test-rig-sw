@@ -3,7 +3,7 @@ var commands = require('./commands');
 // Assumes Tessel connection was already opened and will be closed afterwards
 function wifiTest(opts, tessel) {
   // Empirically derived time it takes for connection to be ready for pings
-  const settleTime = 15000;
+  const settleTime = 10000;
   return tessel.connectToNetwork(opts)
   .then(() => {
     return new Promise((resolve, reject) => {
