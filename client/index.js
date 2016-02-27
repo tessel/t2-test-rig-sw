@@ -198,49 +198,45 @@ function runWifiTest(wifiOpts, serialNumber, cb){
 
   var scanner = new discovery.Scanner();
 
+  // Timeout handle used to give up on quiet Tessels
+  var bootedTimeout;
   // Called when a device is connected (but not necessarily booted)
   scanner.on('connection', (device) => {
     // Update the UI to say it's booting
     console.log('\n\nwe have a booting Tessel!\n\n', device.serialNumber);
+    // Average boot time is 24 seconds, 60 gives us breathing room
+    var timeoutSeconds = 60;
+    bootedTimeout = setTimeout(() => {
+      // Stop scanning
+      scanner.stop();
+
+      // Stop listening
+      scanner.removeAllListeners();
+
+      // Call our callback with an error
+      return cb && cb(new Error(`Device took longer than ${timeoutSeconds} to boot up`));
+    }, timeoutSeconds*1000);
   });
 
   // Called when we can open the device because it has finished booting
   scanner.on('ready', (device) => {
+    console.log('device found:', device.serialNumber, 'was looking for:', serialNumber);
     if (device.serialNumber === serialNumber) {
+      // Clear our failure timeout
+      clearTimeout(bootedTimeout);
       // We then fetch a Tessel Object from the Tessel CLI that has been built
       // with this USB Connection
-      tesselCLI.list({timeout: 2, output: false, usb: true})
-      .then((tessels) => {
-        var tessel;
-        // Iterate through returned Tessels
-        tessels.forEach((possibleMatch) => {
-          // If this tessel's serial number matches the one we are looking for
-          if (possibleMatch.connection.serialNumber === serialNumber) {
-            // This is our Tessel
-            tessel = possibleMatch;
-          }
-        });
+      tessel = new tesselCLI.Tessel(new tesselCLI.USBConnection(device));
 
-        if (!tessel) {
-          throw new Error(`Tessel under test ${serialNumber} not discovered under available Tessels`);
-        }
-        // Stop scanning for new devices
-        scanner.stop();
+      // Stop scanning for new devices
+      scanner.stop();
 
-        // Remove old listeners in case we have future events unrelated to this device
-        scanner.removeAllListeners();
+      // Remove old listeners in case we have future events unrelated to this device
+      scanner.removeAllListeners();
 
-        // Start the wifi Test
-        startTest(tessel, cb);
-      })
-      .catch((err) => {
-        if (err.toString().includes('No Tessels Found.')) {
-          cb && cb(`Not able to find ${serialNumber} because no Tessels are connected.`);
-        }
-        else {
-          cb && cb(`Unable to list connected Tessels: ${err} for serial number ${serialNumber}.`);
-        }
-      });
+      console.log('beginning wifi tests...');
+      // Start the wifi Test
+      startTest(tessel, cb);
     }
   });
 
