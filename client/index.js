@@ -416,13 +416,13 @@ io.sockets.on('connection', function (client) {
     console.log("smt testing", isSMTTesting);
 
     // If we are doing through hole testing
-    if (!isSMTTesting) {
+    if (!isSMTTesting && !scanner.scanning) {
       // Start our scanner
       console.log('beginning through hole scanning');
       scanner.start();
     }
     // Otherwise stop our scanner
-    else {
+    else if (isSMTTesting && scanner.scanning) {
       console.log('stopping through hole scanning');
       scanner.stop();
     }
@@ -443,7 +443,7 @@ function nameTest(tessel) {
     var tesselData = {test: 'name', tessel: sanitizedTessel, status: 1, info: sanitizedTessel.name};
     // Update our own log on the testlator server
     reportLog({device: sanitizedTessel.serialNumber, data: "Connected over USB"}, true);
-    // Update out through hole tests interface
+    // Update our through hole tests interface
     updateDeviceStatus(tesselData, true);
     return Promise.resolve();
   })
@@ -459,30 +459,32 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
     integrationTests.usbTest(usbOpts, selectedTessel)
     .then(function(){
       console.log("usb test passed");
-      selectedTessel.setGreenLED(1);
-      tesselData.status = 1;
-
-      reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, true);
-      updateDeviceStatus(tesselData, true);
-
-      console.log("running ethernet test");
-
-      tesselData.test = 'eth';
-      tesselData.status = 0;
-      updateDeviceStatus(tesselData, true);
-
-      // first wipe the old wifi credentials
-      return integrationTests.ethernetTest(ethOpts, selectedTessel)
-      .then(function(){
-
-        selectedTessel.setBlueLED(1);
-
-        console.log("\n\nethernet test passed!!!");
+      return selectedTessel.setGreenLED(1)
+      .then(() => {
         tesselData.status = 1;
-        reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, true);
+
+        reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, true);
         updateDeviceStatus(tesselData, true);
 
-        return resolve();
+        console.log("running ethernet test");
+
+        tesselData.test = 'eth';
+        tesselData.status = 0;
+        updateDeviceStatus(tesselData, true);
+
+        // first wipe the old wifi credentials
+        return integrationTests.ethernetTest(ethOpts, selectedTessel)
+        .then(function(){
+
+          console.log("\n\nethernet test passed!!!");
+          tesselData.status = 1;
+          reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, true);
+          updateDeviceStatus(tesselData, true);
+
+          selectedTessel.setBlueLED(1)
+          .then(resolve)
+
+        })
       })
       .catch(function(err){
         console.log("\n\nethernet test failed", err);
