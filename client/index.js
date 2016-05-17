@@ -416,13 +416,13 @@ io.sockets.on('connection', function (client) {
     console.log("smt testing", isSMTTesting);
 
     // If we are doing through hole testing
-    if (!isSMTTesting) {
+    if (!isSMTTesting && !scanner.scanning) {
       // Start our scanner
       console.log('beginning through hole scanning');
       scanner.start();
     }
     // Otherwise stop our scanner
-    else {
+    else if (isSMTTesting && scanner.scanning) {
       console.log('stopping through hole scanning');
       scanner.stop();
     }
@@ -443,7 +443,7 @@ function nameTest(tessel) {
     var tesselData = {test: 'name', tessel: sanitizedTessel, status: 1, info: sanitizedTessel.name};
     // Update our own log on the testlator server
     reportLog({device: sanitizedTessel.serialNumber, data: "Connected over USB"}, true);
-    // Update out through hole tests interface
+    // Update our through hole tests interface
     updateDeviceStatus(tesselData, true);
     return Promise.resolve();
   })
@@ -459,30 +459,32 @@ function throughHoleTest(usbOpts, ethOpts, selectedTessel){
     integrationTests.usbTest(usbOpts, selectedTessel)
     .then(function(){
       console.log("usb test passed");
-      selectedTessel.setGreenLED(1);
-      tesselData.status = 1;
-
-      reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, true);
-      updateDeviceStatus(tesselData, true);
-
-      console.log("running ethernet test");
-
-      tesselData.test = 'eth';
-      tesselData.status = 0;
-      updateDeviceStatus(tesselData, true);
-
-      // first wipe the old wifi credentials
-      return integrationTests.ethernetTest(ethOpts, selectedTessel)
-      .then(function(){
-
-        selectedTessel.setBlueLED(1);
-
-        console.log("\n\nethernet test passed!!!");
+      return selectedTessel.setGreenLED(1)
+      .then(() => {
         tesselData.status = 1;
-        reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, true);
+
+        reportLog({device: sanitizedTessel.serialNumber, data: "USB tests passed"}, true);
         updateDeviceStatus(tesselData, true);
 
-        return resolve();
+        console.log("running ethernet test");
+
+        tesselData.test = 'eth';
+        tesselData.status = 0;
+        updateDeviceStatus(tesselData, true);
+
+        // first wipe the old wifi credentials
+        return integrationTests.ethernetTest(ethOpts, selectedTessel)
+        .then(function(){
+
+          console.log("\n\nethernet test passed!!!");
+          tesselData.status = 1;
+          reportLog({device: sanitizedTessel.serialNumber, data: "ETH tests passed"}, true);
+          updateDeviceStatus(tesselData, true);
+
+          selectedTessel.setBlueLED(1)
+          .then(resolve)
+
+        })
       })
       .catch(function(err){
         console.log("\n\nethernet test failed", err);
@@ -567,7 +569,14 @@ function checkLocalBinaries() {
           // Fetch the latest build info from the server
           request(urljoin(BUILD_PATH, build, 'info'), function(err, res, body) {
             // Parse the info into JSON
-            body = JSON.parse(body);
+            try {
+              body = JSON.parse(body);
+            }
+            catch(err) {
+              console.log('info fail', urljoin(BUILD_PATH, build, 'info'));
+              return reject(err);
+            }
+
             // Check 3: Compare the MD5 sums to ensure they are the same file
             if (body.md5sum != configs.builds[build].md5sum) {
               // If not, return an error so we update
@@ -602,7 +611,6 @@ function fetchFreshBuildsJSON() {
       }
       try {
         var res = JSON.parse(body);
-
         fs.writeFile(path.join(__dirname, './build.json'), body, (err) => {
           if (err) {
             return reject(err);
@@ -624,9 +632,8 @@ function fetchFreshBuildsJSON() {
 /*
   Installs latest binaries AND builds.json
 */
-function fetchFreshBuilds(buildsJSON){
+function fetchFreshBuilds(){
   isDownloading = true;
-
   return new Promise((resolve, reject) => {
     var buildsJSON = {};
     var downloadPath = path.join(__dirname, '/bin');
@@ -645,11 +652,9 @@ function fetchFreshBuilds(buildsJSON){
           return reject(err);
         }
       }
-
       async.forEachOf(BUILDS, function(build, i, callback){
         var url = urljoin(BUILD_PATH, build);
         var binPath = path.join(__dirname, 'bin', build + ".bin");
-
         var binFile = fs.createWriteStream(binPath);
         request.get(url+'.bin')
         .on('error', reject)
@@ -678,14 +683,16 @@ function fetchFreshBuilds(buildsJSON){
       }, function(err){
           if (err) return reject(err);
           isDownloading = false;
+          return fetchFreshBuildsJSON()
+          .then(()=> {
+            // Update the UI with new build data
+            io.sockets.emit('updateHostData', JSON.stringify(configs.builds));
 
-          // Overwrite our potentially out of date builds.JSON
-          fs.writeFile(path.join(__dirname, './build.json'), JSON.stringify(buildsJSON, null, 2), function(err){
-            // Update UI
             emitMessage("Update finished! You may begin tests now.", isDownloading);
             // Finish function
             return resolve();
-          });
+          })
+          .catch(reject);
         });
       });
     });
@@ -705,7 +712,7 @@ function initializeTestbenchServer() {
     // If we need to download binaries
     if (needNewBinaries) {
       // Do that now
-      return fetchFreshBuilds();
+      return fetchFreshBuilds().catch(console.error);
     }
   })
   // Start reporting a heartbeat to testalator

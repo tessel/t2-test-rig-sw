@@ -156,21 +156,61 @@ block head
             switchStatus("In Progress", $("#"+tessel+"-"+test+"-status"));
           }
         }
-
       })
+      socket.on('updateHostData', function(data) {
+        console.log('updating host data', data);
+
+        var hostData = $('#hostDataBody');
+
+        // Delete all existing table rows
+        hostData.empty();
+
+        var buildsDetails = JSON.parse(data);
+        var binaries = Object.keys(buildsDetails);
+
+        binaries.forEach(function(binary) {
+          var details = buildsDetails[binary];
+          var row = $('<tr>');
+
+          // Cell 1 (name and URL)
+          var urlCell = $('<td>');
+          var buildLink = $('<a>', {href: '/bin/' + binary + '.bin' });
+          buildLink.text(binary)
+          urlCell.append(buildLink);
+          row.append(urlCell);
+
+          // Cell 2 (md5sum)
+          var md5Cell = $('<td>');
+          md5Cell.text(buildsDetails[binary].md5sum)
+          row.append(md5Cell);
+
+          // Cell 3 (build)
+          var buildCell = $('<td>');
+          buildCell.text(buildsDetails[binary].build)
+          row.append(buildCell);
+
+          // Cell 4 (last updated)
+          var timeCell = $('<td>');
+          timeCell.text(new Date(buildsDetails[binary].time))
+          row.append(timeCell);
+
+          // Add the row
+          hostData.append(row);
+        });
+      });
     })
 
 block content
   h3 Host #{host.name} | build: #{host.build}
   .hostData
-    table
+    table#hostDataTable
       thead
         tr
           th Binary
           th MD5
           th Build
           th Updated
-      tbody
+      tbody#hostDataBody
         each val, key in builds
           tr
             td
