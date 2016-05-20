@@ -42,9 +42,12 @@ Scanner.prototype.start = function() {
   usb.on('attach', (device) => this.connectHandler(device));
   // Prepare for those that are removed
   usb.on('detach', (device) => this.disconnectHandler(device));
+  // Note that we are actively scanning
+  this.scanning = true;
 };
 
 Scanner.prototype.connectHandler = function(device) {
+
   if ((device.deviceDescriptor.idVendor === TESSEL_VID) && (device.deviceDescriptor.idProduct === TESSEL_PID)) {
     // Fetch the serial number for this device which all consumers will probably
     // want to use as an easy identifier
@@ -98,6 +101,11 @@ Scanner.prototype.fetchSerialNumber = function(device) {
 Scanner.prototype.attemptConnect = function(device, numAttempts) {
   // Decrement the number of remaining attempts
   numAttempts--;
+
+  // This device was removed between scans, just abort
+  if (this.devices.indexOf(device) == -1) {
+    return;
+  }
   // Try to connect to the spi daemon
   this.attemptSingleConnect(device)
   // If it works, then this device is booted and ready to go
@@ -123,7 +131,6 @@ Scanner.prototype.attemptSingleConnect = function(device) {
       // Perform a control transfer to fetch the boot state
       device.controlTransfer(USB_TRANSFER_REQUEST_TYPE, USB_TRANSFER_REQUEST, 0, 0, 1, (err, data) => {
         if (err) {
-          console.log('there was an error', err);
           reject(err);
         }
         else {
