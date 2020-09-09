@@ -8,7 +8,7 @@
     "jade": "~0.31.2",
     "mongojs": "*",
     "prompt": "^0.2.14",
-    "request": "~2.55.0",
+    "request": "~2.88.2",
     "socket.io": "~0.9.14"
   },
   "engines": {
