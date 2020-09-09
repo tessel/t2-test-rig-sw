@@ -4,7 +4,7 @@
   "dependencies": {
     "async": "^1.2.1",
     "bluebird": "^2.9.30",
-    "express": "3.1.x",
+    "express": "3.11.x",
     "jade": "~0.31.2",
     "mongojs": "~0.18.2",
     "request": "^2.57.0",
