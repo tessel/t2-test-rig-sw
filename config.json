@@ -14,5 +14,5 @@
     "openwrt-ramips-mt7620-Default-u-boot",
     "openwrt-ramips-mt7620-tessel-squashfs-sysupgrade"
   ],
-  "client": "2c2043a883f19bea393e93c3313542e7297972af"
+  "client": "add639a4ed722500683418a040573fdd44fd01e9"
 }

@@ -15,7 +15,9 @@ Then run `node scripts/updateBuild.js`. This will populate a `build.json` file.
 
 `config.json` contains the tests and basic auth tokens.
 
-Run `tests/test.js` to populate data
+The server uses [MongoDB](https://www.mongodb.com/) as its database, configured by the `DB` environment variable that defaults to `localhost`. This should be configured before starting the server and running the following test script.
+
+Run `tests/test.js` to populate data, it will default to making requests to `http://localhost:3000` unless the `HOST` environment variable is set.
 
 If running on OSX, make sure to have this in your bashrc:
 ```

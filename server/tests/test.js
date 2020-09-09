@@ -1,5 +1,5 @@
 var request = require('request');
-var host = "http://localhost:3000";
+var host = process.env.HOST || "http://localhost:3000";
 var tests = require('../../config.json').tests;
 
 function formatLog(date, test, level, data){

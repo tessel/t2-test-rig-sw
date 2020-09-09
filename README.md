@@ -10,6 +10,16 @@ Only Linux fully supports running the tests and OSX partially supports the test 
 
 ## Updating production code
 
+The server is currently managed using [Dokku](http://dokku.viewdocs.io/dokku/). You'll need to have ssh access to deploy updates to the server, but do not need to ssh into the server.
+
+Add `dokku` as a git remote:
+
+```
+git remote add dokku dokku@testalator.tessel.io
+```
+
+Once that remote is added, the [official CLI client](http://dokku.viewdocs.io/dokku/) can be used to manage the server.
+
 A complete update of the test bench code consists of four parts: updating the release binaries (also known as golden images), updating the test bench, updating the boot scripts (in the `/boot` folder), and updating the `server` code running at `testalator.tessel.io`.
 
 Most use cases likely involve only updating the binaries flashed on to the new Tessels. Updating the test runner or boot code is a significant endeavor and should only be attempted when absolutely necessary to prevent manufacturing delays. Updating the `server` code is relatively straightforward but shouldn't be necessary in most cases.
@@ -32,8 +42,11 @@ ssh root@testalator.tessel.io node /home/testalator/t2-test-rig-sw/server/script
 
 Finally, you'll need to restart the server:
 ```
-ssh root@testalator.tessel.io killall npm
-ssh root@testalator.tessel.io cd /home/testalator/t2-test-rig-sw/server; npm start;
+dokku ps:restart
+
+// OR if not using the CLI
+
+ssh dokku@testalator.tessel.io ps:restart
 ```
 
 ### Updating the testbench
@@ -59,12 +72,11 @@ nano config.json
 Updating the boot script code (in the `/boot` directory) lives on the same flash drives that contain the [debian live image](https://github.com/tessel/t2-test-rig-debian-live) that is powering the test running PC. To update it, you'll either net to get access to the flash drive currently in use at the manufacturer's facility or you'll need to send them new ones. Load the debian image onto the flash drive, boot into it, then place the contents of the `/boot` folder into `/lib/live/mount/medium` folder.
 
 ### Updating the testalator.tessel.io server
-You'll need to ssh into the testalator server, pull down your changes (probably via git), and then relaunch supervisor
+
+Updates can be deploy by pushing to the `dokku` remote:
+
 ```
-ssh root@testalator.tessel.io
-cd /home/testalator/t2-test-rig-sw/
-# Or however you need to this it to get to your code
-git pull origin master
-# There is probably a better way to run the server forever
-node server/index.js &
+git push dokku master
 ```
+
+Dokku will automatically build, deploy, and restart the server with these changes.
