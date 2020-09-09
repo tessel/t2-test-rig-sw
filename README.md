@@ -27,15 +27,10 @@ Most use cases likely involve only updating the binaries flashed on to the new T
 ### Updating binaries
 Occasionally, we may want to update the version of the binaries that our manufacturers are flashing on Tessel 2s as they come off the assembly line. To do that, you will need SSH access to the Testalator server (testalator.tessel.io). If you don't have access, please ask another Tessel Team Member.
 
-Once the client code has been tarred, make sure the latest firmware and openwrt binaries are in the `server/public/builds` directory and the `server/build.json` file has been generated using the `server/scripts/updateBuild.js` script. Once that is confirmed, running `./script/deploy.sh` should push these new assets to Dokku.
-
-Finally, you'll need to restart the server:
 ```
-dokku ps:restart
-
-// OR if not using the CLI
-
-ssh dokku@testalator.tessel.io ps:restart
+$ Transfer the binaries to a publicly accessible directory on the test server
+scp firmware.bin root@testalator.tessel.io:/var/lib/dokku/data/storage/testalator/
+scp openwrt-ramips-mt7620-tessel-squashfs-sysupgrade.bin root@testalator.tessel.io:/var/lib/dokku/data/storage/testalator/
 ```
 
 ### Updating the testbench
@@ -45,13 +40,14 @@ The testbench consists of the entire `\client` directory with the exception of a
 # Zips up the client to the local `server`'s build directory
 tar -cvz --exclude-from=.client-tar-ignore -f server/public/builds/client.tar.gz .
 $ Transfers the tarball to a publicly accessible directory on the test server
-scp server/public/builds/client.tar.gz root@testalator.tessel.io:/home/testalator/t2-test-rig-sw/server/public/builds
+scp server/public/builds/client.tar.gz root@testalator.tessel.io:/var/lib/dokku/data/storage/testalator/
 ```
 
-You should also update the `config.json` file to have the correct commit sha for the version of the client you are uploading.
+You should also update the `config.json` file to have the correct commit sha for the version of the client you are uploading. Once that is updated and commited, it can be pushed to the dokku server:
 
-Once the client code has been tarred, make sure the latest firmware and openwrt binaries are in the `server/public/builds` directory and the `server/build.json` file has been generated using the `server/scripts/updateBuild.js` script. Once that is confirmed, running `./script/deploy.sh` should push these new assets to Dokku.
-
+```
+git push dokku master
+```
 
 
 ### Updating bootscript code
