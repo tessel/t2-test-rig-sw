@@ -3,4 +3,5 @@ client/node_modules/usb/build/*
 client/node_modules/t2-cli/node_modules/usb/build/*
 server/
 .git/
-boot
+boot/
+scripts/

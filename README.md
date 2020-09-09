@@ -27,18 +27,7 @@ Most use cases likely involve only updating the binaries flashed on to the new T
 ### Updating binaries
 Occasionally, we may want to update the version of the binaries that our manufacturers are flashing on Tessel 2s as they come off the assembly line. To do that, you will need SSH access to the Testalator server (testalator.tessel.io). If you don't have access, please ask another Tessel Team Member.
 
-First, `scp` any new binaries to the public directory of the server:
-```
-# Uploads a new samd21 firmware and OpenWRT firmware
-scp firmware.bin root@testalator.tessel.io:/home/testalator/t2-test-rig-sw/server/public/builds;
-scp openwrt-ramips-mt7620-tessel-squashfs-sysupgrade.bin root@testalator.tessel.io:/home/testalator/t2-test-rig-sw/server/public/builds;
-```
-
-Second, run the script to generate a new builds.json file. This file is used to ensure the integrity
-of the builds downloaded at the manufacturer's testing site. Follow the prompts to enter in the commit hashes of the t2-firmware and tessel-openwrt release commits:
-```
-ssh root@testalator.tessel.io node /home/testalator/t2-test-rig-sw/server/scripts/updateBuild.js
-```
+Once the client code has been tarred, make sure the latest firmware and openwrt binaries are in the `server/public/builds` directory and the `server/build.json` file has been generated using the `server/scripts/updateBuild.js` script. Once that is confirmed, running `./script/deploy.sh` should push these new assets to Dokku.
 
 Finally, you'll need to restart the server:
 ```
@@ -54,18 +43,15 @@ The testbench consists of the entire `\client` directory with the exception of a
 
 ```
 # Zips up the client to the local `server`'s build directory
-tar -cvz --exclude=*.pyc --exclude=client/node_modules/usb/build/* --exclude=client/node_modules/t2-cli/node_modules/usb/build/*  --exclude=server --exclude=.git --exclude=boot -f server/public/builds/client.tar.gz .
+tar -cvz --exclude-from=.client-tar-ignore -f server/public/builds/client.tar.gz .
 $ Transfers the tarball to a publicly accessible directory on the test server
 scp server/public/builds/client.tar.gz root@testalator.tessel.io:/home/testalator/t2-test-rig-sw/server/public/builds
 ```
 
-You should also update the `config.json` file on the server to have the correct commit sha for the version of the client you are uploading:
-```
-ssh root@testalator.tessel.io
-cd /home/testalator/t2-test-rig-sw/
-nano config.json
-# Edit the `client` property with this client commit SHA
-```
+You should also update the `config.json` file to have the correct commit sha for the version of the client you are uploading.
+
+Once the client code has been tarred, make sure the latest firmware and openwrt binaries are in the `server/public/builds` directory and the `server/build.json` file has been generated using the `server/scripts/updateBuild.js` script. Once that is confirmed, running `./script/deploy.sh` should push these new assets to Dokku.
+
 
 
 ### Updating bootscript code
