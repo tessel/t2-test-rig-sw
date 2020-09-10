@@ -240,7 +240,7 @@ app.post("/logs", function (req, res) {
 
       i++;
       if (i >= identifiers.length) {
-        return res.send(success);
+        return res.send(!!success);
       } else {
         pushLog();
       }
