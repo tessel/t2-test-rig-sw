@@ -218,7 +218,7 @@ function newLog(logQuery, data, cb) {
         io.sockets.emit("log_update_" + logQuery[key], data);
         cb(true);
       } else {
-        if (DEBUG) console.log("not saved", identifiers, err);
+        if (DEBUG) console.log("not saved", logQuery, err);
         cb(false);
       }
     }
